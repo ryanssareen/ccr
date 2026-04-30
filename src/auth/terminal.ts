@@ -7,7 +7,7 @@ import { render } from "ink";
 import Spinner from "ink-spinner";
 import TextInput from "ink-text-input";
 
-export const DEFAULT_ENDPOINT = "https://ccr.vercel.app";
+export const DEFAULT_ENDPOINT = "https://ccr-ebon.vercel.app";
 export const SIGNUP_OR_LOGIN_PATH = "/api/v1/signupOrLogin";
 export const GITHUB_LOGIN_REQUIRES_BROWSER_MESSAGE =
   "GitHub login requires a browser. Run `ccr login` (without --terminal).";
