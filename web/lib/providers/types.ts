@@ -52,9 +52,20 @@ export class UpstreamProviderError extends Error {
     this.providerName = providerName;
     this.status = status;
     this.responseBody = responseBody;
-    this.retryable = options?.retryable ?? (status === undefined || status === 429 || status >= 500);
+    // 4xx (except 401/403) usually means "this provider can't serve this
+    // specific request" — wrong model name, unsupported feature, etc.
+    // Treat those as retryable so the router falls through to the next
+    // provider, but don't mark unhealthy (the provider itself is fine).
+    // 401/403 indicates a misconfigured key — also retryable, also not
+    // a transient health issue, so we try other providers without burning
+    // the health budget. 5xx and 429 mean the provider is genuinely sad
+    // and should be cooled off.
+    const is4xx = status !== undefined && status >= 400 && status < 500;
+    const is5xx = status !== undefined && status >= 500;
+    this.retryable =
+      options?.retryable ?? (status === undefined || status === 429 || is4xx || is5xx);
     this.markUnhealthy =
-      options?.markUnhealthy ?? (status === 429 || (status !== undefined && status >= 500));
+      options?.markUnhealthy ?? (status === 429 || is5xx);
   }
 }
 
