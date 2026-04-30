@@ -15,15 +15,34 @@ npm link        # makes the `ccr` command global
 # npm install -g ccr-cli
 ```
 
+## Quick Start
+
+1. **Get a Groq API key:**
+   - Sign up at https://console.groq.com/
+   - Copy your API key
+
+2. **Set the API key:**
+   ```bash
+   export GROQ_API_KEY=gsk_...
+   ccr "your prompt here"
+   ```
+
+3. **Or add to `.env` in your project:**
+   ```
+   GROQ_API_KEY=gsk_...
+   ```
+
 ## Configure
 
 ```bash
-export GROQ_API_KEY=gsk_...
-# Optional model override:
+# Override the model (default: llama-3.1-8b-instant):
 export CCR_MODEL=llama-3.3-70b-versatile
 ```
 
-A `.env` file in the project root is also auto-loaded.
+**API Key Options:**
+- Environment variable: `export GROQ_API_KEY=...`
+- `.env` file in project root
+- `~/.ccr/config.json`: `{ "groqApiKey": "gsk_..." }`
 
 ## Use
 
