@@ -1,0 +1,397 @@
+<!DOCTYPE html><!--maXVa39UZdn6gk9sjyU3Y--><html lang="en" class="__variable_f367f3 __variable_eb41fe __variable_814fbd __variable_9a8899"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" href="/_next/static/media/46bdd75a3ff56824-s.p.woff2" as="font" crossorigin="" type="font/woff2"/><link rel="preload" href="/_next/static/media/93f479601ee12b01-s.p.woff2" as="font" crossorigin="" type="font/woff2"/><link rel="preload" href="/_next/static/media/af4bf8399d1aacdf-s.p.woff2" as="font" crossorigin="" type="font/woff2"/><link rel="preload" href="/_next/static/media/e4af272ccee01ff0-s.p.woff2" as="font" crossorigin="" type="font/woff2"/><link rel="stylesheet" href="/_next/static/css/cbe2afc5dcc64855.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-f706f8e3ff0a415c.js"/><script src="/_next/static/chunks/4bd1b696-c023c6e3521b1417.js" async=""></script><script src="/_next/static/chunks/255-4f212684648fcab9.js" async=""></script><script src="/_next/static/chunks/main-app-f84f53d0124f6020.js" async=""></script><script src="/_next/static/chunks/619-ba102abea3e3d0e4.js" async=""></script><script src="/_next/static/chunks/app/page-cc2da7ed0210e2e8.js" async=""></script><meta name="next-size-adjust" content=""/><title>CCR</title><meta name="description" content="CCR managed service website"/><script src="/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-cream text-ink font-sans antialiased"><div hidden=""><!--$--><!--/$--></div><style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  .display {
+    font-family: var(--font-display), "Caveat", "Bradley Hand", cursive;
+    font-weight: 600;
+    font-size: clamp(72px, 10vw, 108px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--text-ink);
+    margin: 0;
+    transform: rotate(-1deg);
+  }
+  .display .period { color: var(--accent-clay); font-style: italic; }
+
+  .h2 {
+    font-family: var(--font-display), "Caveat", "Bradley Hand", cursive;
+    font-weight: 600;
+    font-size: clamp(40px, 5.5vw, 56px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .h3 {
+    font-family: var(--font-sans), Inter, system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .body { font-size: 17px; line-height: 1.6; color: var(--text-ink); }
+  .caption {
+    font-family: var(--font-sans), Inter, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+  }
+  .caption-clay { color: var(--accent-clay); }
+
+  .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 32px; }
+  .wrap-narrow { max-width: 720px; margin: 0 auto; padding: 0 32px; }
+  section { padding: var(--rhythm) 0; }
+  @media (max-width: 720px) {
+    section { padding: var(--rhythm-sm) 0; }
+    .wrap, .wrap-narrow { padding: 0 24px; }
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg-cream);
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+    border-bottom: 1px solid transparent;
+  }
+  .nav.scrolled { border-bottom-color: var(--border-soft); }
+  .nav-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .wordmark {
+    font-family: var(--font-display), "Caveat", "Bradley Hand", cursive;
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    color: var(--text-ink);
+    text-decoration: none;
+    transform: rotate(-1.5deg);
+    display: inline-block;
+  }
+  .nav-links { display: flex; align-items: center; gap: 6px; }
+  .nav-link {
+    font-size: 15px;
+    color: var(--text-ink);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: color 150ms ease, background 150ms ease;
+  }
+  .nav-link:hover { color: var(--accent-clay); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-sans), Inter, sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 11px 18px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+    line-height: 1;
+  }
+  .btn-primary { background: var(--accent-clay); color: #fff; }
+  .btn-primary:hover { background: var(--accent-clay-hover); }
+  .btn-ghost { background: transparent; color: var(--text-ink); border-color: var(--border-soft); }
+  .btn-ghost:hover { border-color: var(--text-ink); }
+  .btn-bare { background: transparent; color: var(--text-ink); padding: 11px 14px; }
+  .btn-bare:hover { color: var(--accent-clay); }
+  .btn-lg { padding: 14px 22px; font-size: 16px; }
+
+  .hero { padding-top: 120px; padding-bottom: 96px; text-align: center; }
+  @media (max-width: 720px) { .hero { padding-top: 72px; padding-bottom: 64px; } }
+  .hero-inner { max-width: 880px; margin: 0 auto; padding: 0 32px; }
+  .hero .caption { margin-bottom: 28px; display: block; }
+  .hero .display { margin-bottom: 28px; }
+  .hero-sub {
+    max-width: 580px;
+    margin: 0 auto 36px;
+    color: #5b5a55;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .hero-sub code {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.92em;
+    background: var(--border-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text-ink);
+  }
+  .hero-cta {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+  .install-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg-cream);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px 14px 10px 18px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 14px;
+    color: var(--text-ink);
+    cursor: pointer;
+    transition: border-color 150ms ease;
+    user-select: all;
+  }
+  .install-chip:hover { border-color: var(--text-mid); }
+  .install-chip .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-mid);
+    cursor: pointer;
+    transition: color 150ms ease, background 150ms ease;
+  }
+  .install-chip .copy-btn:hover { color: var(--text-ink); background: var(--border-soft); }
+
+  .terminal-section { padding-top: 0; }
+  .terminal-wrap { max-width: var(--max-w); margin: 0 auto; position: relative; padding: 0 24px; }
+  .terminal-frame {
+    position: absolute;
+    top: -8px; left: 16px; right: 16px; bottom: -8px;
+    pointer-events: none;
+    width: calc(100% - 32px);
+    height: calc(100% + 16px);
+  }
+  .terminal {
+    position: relative;
+    background: var(--bg-cream-2);
+    padding: 36px 40px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text-ink);
+    overflow: hidden;
+  }
+  @media (max-width: 720px) {
+    .terminal { padding: 24px 22px; font-size: 13px; }
+  }
+  .term-prompt { color: var(--accent-clay); }
+  .term-user { color: var(--text-ink); }
+  .term-dim { color: #7d7c75; }
+  .term-status-row {
+    margin-top: 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    color: var(--text-mid);
+    font-style: italic;
+  }
+  .term-status-row .dot {
+    flex: 0 0 auto;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-clay);
+    animation: ccr-pulse 1.4s ease-in-out infinite;
+    transform: translateY(-2px);
+  }
+  .term-status-text { flex: 1 1 auto; }
+  @keyframes ccr-pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+
+  .diff-card {
+    margin: 18px 0;
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    background: var(--bg-cream);
+    overflow: hidden;
+  }
+  .diff-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+  .diff-head .file { color: var(--text-ink); font-family: var(--font-mono), ui-monospace, monospace; }
+  .diff-body { padding: 8px 0; }
+  .diff-line {
+    display: grid;
+    grid-template-columns: 44px 16px 1fr;
+    align-items: baseline;
+    padding: 1px 16px;
+    font-size: 13.5px;
+    white-space: pre;
+  }
+  .diff-line .ln { color: var(--text-mid); user-select: none; }
+  .diff-line .marker { user-select: none; }
+  .diff-add { background: rgba(217, 119, 87, 0.09); }
+  .diff-add .marker, .diff-add .code { color: var(--accent-clay); }
+  .diff-add .ln { color: var(--accent-clay); opacity: 0.7; }
+  .diff-del { background: rgba(106, 155, 204, 0.10); }
+  .diff-del .marker, .diff-del .code { color: var(--accent-sky); }
+  .diff-del .ln { color: var(--accent-sky); opacity: 0.7; }
+
+  .term-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-sage);
+    font-family: var(--font-sans), Inter, sans-serif;
+    font-size: 14px;
+  }
+  .term-confirm .check {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent-sage);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--accent-sage);
+    font-size: 11px;
+  }
+  .term-blink::after {
+    content: '▍';
+    color: var(--text-ink);
+    margin-left: 2px;
+    animation: ccr-blink 1s steps(2) infinite;
+  }
+  @keyframes ccr-blink { 50% { opacity: 0; } }
+
+  .callout { padding: 128px 0; text-align: center; }
+  @media (max-width: 720px) { .callout { padding: 80px 0; } }
+  .callout-inner { max-width: 780px; margin: 0 auto; padding: 0 32px; }
+  .callout-line1 { color: var(--text-ink); margin-bottom: 24px; }
+  .callout-line2-wrap { position: relative; display: inline-block; }
+  .callout-line2 { color: var(--accent-clay); }
+  .ccr-underline { position: relative; display: inline-block; }
+  .ccr-squiggle {
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    transform: translateX(-50%);
+    width: 110%;
+    height: auto;
+    pointer-events: none;
+  }
+
+  .capabilities {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 56px;
+  }
+  @media (max-width: 720px) {
+    .capabilities { grid-template-columns: 1fr; gap: 40px; }
+  }
+  .cap-num {
+    font-family: var(--font-display), "Caveat", cursive;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    color: var(--accent-clay);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  .cap h3 { margin-bottom: 10px; }
+  .cap p { color: #5b5a55; margin: 0; max-width: 30ch; }
+
+  .free .h2 { text-align: center; margin-bottom: 28px; }
+  .free p { color: #3f3e3a; margin: 0 0 18px; }
+  .providers {
+    margin-top: 56px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    color: var(--text-mid);
+  }
+  .providers .provider {
+    font-family: var(--font-sans), Inter, sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.005em;
+    color: var(--text-mid);
+  }
+  .providers .provider.together { font-weight: 500; }
+  .providers .provider em {
+    font-family: var(--font-display), "Caveat", cursive;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .quickstart .caption { margin-bottom: 36px; display: block; }
+  .qs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 880px) { .qs-grid { grid-template-columns: 1fr; } }
+  .qs-block { display: flex; flex-direction: column; gap: 12px; }
+  .qs-num {
+    font-family: var(--font-display), "Caveat", cursive;
+    font-style: italic;
+    color: var(--accent-clay);
+    font-size: 22px;
+  }
+  .qs-code {
+    background: var(--bg-cream-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 14.5px;
+    color: var(--text-ink);
+    overflow-x: auto;
+  }
+  .qs-cap {
+    font-size: 13.5px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+  .qs-cap code {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  footer {
+    border-top: 1px solid var(--border-soft);
+    padding: 64px 0;
+  }
+  .foot-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    color: var(--text-mid);
+    font-size: 14px;
+  }
+  .foot-left { display: flex; align-items: baseline; gap: 16px; }
+  .foot-left .wordmark { font-size: 22px; color: var(--text-mid); }
+  .foot-right { display: flex; gap: 22px; }
+  .foot-right a {
+    color: var(--text-mid);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+  .foot-right a:hover { color: var(--text-ink); }
+  @media (max-width: 600px) {
+    .foot-inner { flex-direction: column; align-items: flex-start; }
+  }
+</style><nav class="nav"><div class="nav-inner"><a class="wordmark" href="/">ccr</a><div class="nav-links"><a class="nav-link" href="https://github.com/ryanssareen/ccr" target="_blank" rel="noreferrer">GitHub</a><a class="nav-link" href="/docs">Docs</a><a class="btn btn-bare" href="/login">Sign in</a><a class="btn btn-primary" href="/signup">Get started</a></div></div></nav><section class="hero"><div class="hero-inner"><span class="caption caption-clay">Free forever · Open source</span><h1 class="display">Vibe code, free<span class="period">.</span></h1><p class="hero-sub">A terminal coding assistant that reads your repo, proposes diffs, and runs commands with your approval. No API key required. Just sign up and <code>ccr</code>.</p><div class="hero-cta"><a class="btn btn-primary btn-lg" href="/signup">Get started — it&#x27;s free</a><a class="btn btn-ghost btn-lg" href="https://github.com/ryanssareen/ccr" target="_blank" rel="noreferrer">View on GitHub →</a></div><div class="install-chip" role="button" aria-label="Copy install command"><span>npm install -g @ryanisavibecoder/ccr</span><button class="copy-btn" aria-label="Copy"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"></rect><path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H11"></path></svg></button></div></div></section><section class="terminal-section"><div class="terminal-wrap"><svg class="terminal-frame" viewBox="0 0 1100 540" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><defs><filter id="pencil"><feTurbulence baseFrequency="0.05" numOctaves="2" seed="3"></feTurbulence><feDisplacementMap in="SourceGraphic" scale="1.2"></feDisplacementMap></filter></defs><path d="M 12 8 Q 8 8 8 12 L 8 528 Q 8 532 12 532 L 1088 532 Q 1092 532 1092 528 L 1092 12 Q 1092 8 1088 8 Z" stroke="#141413" stroke-width="2.5" fill="none" stroke-dasharray="4 2" stroke-linecap="round" style="filter:url(#pencil)"></path></svg><div class="terminal" role="img" aria-label="Terminal demonstration"><div><span class="term-prompt">~/projects/atlas</span> <span class="term-dim">on</span> <span class="term-dim">main</span></div><div style="margin-top:14px"><span class="term-prompt">›</span> <span class="term-user">ccr &quot;the rate limiter is dropping requests under burst load.</span></div><div style="padding-left:16px"><span class="term-user">find the bug in src/limiter.ts and fix it. add a test that</span></div><div style="padding-left:16px"><span class="term-user">covers the burst case. don&#x27;t run anything yet — show me</span></div><div style="padding-left:16px"><span class="term-user">the diff first.&quot;</span></div><div class="term-status-row"><span class="dot"></span><span class="term-status-text">ccr is reading<!-- --> <span class="term-dim">src/limiter.ts · src/limiter.test.ts · 4 imports</span></span></div><div style="margin-top:14px;color:var(--text-mid)">Found it. The token bucket refills on every request instead of every tick, so concurrent calls all see the pre-refill state. Here&#x27;s the fix:</div><div class="diff-card"><div class="diff-head"><span class="file">src/limiter.ts</span><span>−2 +5</span></div><div class="diff-body"><div class="diff-line"><span class="ln">42</span><span class="marker"> </span><span class="code">  consume(n = 1) {</span></div><div class="diff-line diff-del"><span class="ln">43</span><span class="marker">−</span><span class="code">    this.tokens = Math.min(this.cap, this.tokens + this.rate);</span></div><div class="diff-line diff-del"><span class="ln">44</span><span class="marker">−</span><span class="code">    if (this.tokens &lt; n) return false;</span></div><div class="diff-line diff-add"><span class="ln">43</span><span class="marker">+</span><span class="code">    const now = performance.now();</span></div><div class="diff-line diff-add"><span class="ln">44</span><span class="marker">+</span><span class="code">    const elapsed = (now - this.last) / 1000;</span></div><div class="diff-line diff-add"><span class="ln">45</span><span class="marker">+</span><span class="code">    this.tokens = Math.min(this.cap, this.tokens + elapsed * this.rate);</span></div><div class="diff-line diff-add"><span class="ln">46</span><span class="marker">+</span><span class="code">    this.last = now;</span></div><div class="diff-line diff-add"><span class="ln">47</span><span class="marker">+</span><span class="code">    if (this.tokens &lt; n) return false;</span></div><div class="diff-line"><span class="ln">48</span><span class="marker"> </span><span class="code">    this.tokens -= n;</span></div></div></div><div style="color:var(--text-mid)">Apply changes? <span class="term-dim">[y / n / edit]</span> <span class="term-user">y</span></div><div class="term-confirm" style="margin-top:10px"><span class="check">✓</span><span>Wrote 2 files. 1 test added — passing.<span class="term-blink"></span></span></div></div></div></section><section class="callout"><div class="callout-inner"><h2 class="h2 callout-line1">Tired of wrestling your tools?</h2><div class="callout-line2-wrap"><h2 class="h2 callout-line2">Just type <span class="ccr-underline">ccr</span>.</h2><svg class="ccr-squiggle" width="120" height="24" viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><defs><filter id="pencil2"><feTurbulence baseFrequency="0.3" numOctaves="2" seed="7"></feTurbulence><feDisplacementMap in="SourceGraphic" scale="0.8"></feDisplacementMap></filter></defs><path d="M 2 12 Q 30 8, 60 14 T 118 10" stroke="var(--accent-clay)" stroke-width="2.5" fill="none" stroke-linecap="round" style="filter:url(#pencil2)"></path></svg></div></div></section><section><div class="wrap"><div class="capabilities"><div class="cap"><div class="cap-num">01</div><h3 class="h3">Reads your repo</h3><p>Indexes files, follows imports, surfaces what matters.</p></div><div class="cap"><div class="cap-num">02</div><h3 class="h3">Proposes diffs</h3><p>Shows you exactly what changes before anything touches disk.</p></div><div class="cap"><div class="cap-num">03</div><h3 class="h3">Runs commands</h3><p>Asks before executing. Approve, deny, or edit on the fly.</p></div></div></div></section><section class="free"><div class="wrap-narrow"><h2 class="h2">Free isn&#x27;t a trick.</h2><p class="body">CCR routes requests across a handful of LLM providers — Groq, Together AI, Cerebras, OpenRouter — and aggregates their free tiers so you don&#x27;t have to manage API keys, top up balances, or pick a model on a Tuesday. Sign up, install, and it works.</p><p class="body">We pay nothing extra to operate it; you pay nothing to use it. If a provider&#x27;s free tier ever disappears, we route around it. The day that becomes impossible we&#x27;ll tell you, in plain English, on this page.</p><div class="providers" aria-label="LLM providers"><span class="provider">Groq</span><span class="provider together">Together <em>AI</em></span><span class="provider">Cerebras</span><span class="provider">OpenRouter</span></div></div></section><section class="quickstart"><div class="wrap"><span class="caption">Three commands to get started</span><div class="qs-grid"><div class="qs-block"><div class="qs-num">01</div><div class="qs-code">npm install -g @ryanisavibecoder/ccr</div><div class="qs-cap">Installs the <code>ccr</code> binary globally. Node 20+.</div></div><div class="qs-block"><div class="qs-num">02</div><div class="qs-code">ccr login</div><div class="qs-cap">Opens your browser. No API key, no credit card.</div></div><div class="qs-block"><div class="qs-num">03</div><div class="qs-code">ccr &quot;explain this codebase&quot;</div><div class="qs-cap">Run it from the root of any project. That&#x27;s the whole tutorial.</div></div></div></div></section><footer><div class="foot-inner"><div class="foot-left"><a class="wordmark" href="/">ccr</a><span>MIT licensed · 2026</span></div><div class="foot-right"><a href="https://github.com/ryanssareen/ccr" target="_blank" rel="noreferrer">GitHub</a><a href="https://www.npmjs.com/package/@ryanisavibecoder/ccr" target="_blank" rel="noreferrer">npm</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></div></footer><!--$--><!--/$--><script src="/_next/static/chunks/webpack-f706f8e3ff0a415c.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[9766,[],\"\"]\n3:I[8924,[],\"\"]\n4:I[1959,[],\"ClientPageRoot\"]\n5:I[7322,[\"619\",\"static/chunks/619-ba102abea3e3d0e4.js\",\"974\",\"static/chunks/app/page-cc2da7ed0210e2e8.js\"],\"default\"]\n8:I[4431,[],\"OutletBoundary\"]\na:I[5278,[],\"AsyncMetadataOutlet\"]\nc:I[4431,[],\"ViewportBoundary\"]\ne:I[4431,[],\"MetadataBoundary\"]\nf:\"$Sreact.suspense\"\n11:I[7150,[],\"\"]\n:HL[\"/_next/static/media/46bdd75a3ff56824-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/93f479601ee12b01-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/af4bf8399d1aacdf-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/e4af272ccee01ff0-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/css/cbe2afc5dcc64855.css\",\"style\"]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"maXVa39UZdn6gk9sjyU3Y\",\"p\":\"\",\"c\":[\"\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"__PAGE__\",{}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/css/cbe2afc5dcc64855.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"className\":\"__variable_f367f3 __variable_eb41fe __variable_814fbd __variable_9a8899\",\"children\":[\"$\",\"body\",null,{\"className\":\"bg-cream text-ink font-sans antialiased\",\"children\":[\"$\",\"$L2\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L3\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"$L4\",null,{\"Component\":\"$5\",\"searchParams\":{},\"params\":{},\"promises\":[\"$@6\",\"$@7\"]}],null,[\"$\",\"$L8\",null,{\"children\":[\"$L9\",[\"$\",\"$La\",null,{\"promise\":\"$@b\"}]]}]]}],{},null,false]},null,false],[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$Lc\",null,{\"children\":\"$Ld\"}],[\"$\",\"meta\",null,{\"name\":\"next-size-adjust\",\"content\":\"\"}]],[\"$\",\"$Le\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$f\",null,{\"fallback\":null,\"children\":\"$L10\"}]}]}]]}],false]],\"m\":\"$undefined\",\"G\":[\"$11\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"6:{}\n7:\"$0:f:0:1:2:children:1:props:children:0:props:params\"\n"])</script><script>self.__next_f.push([1,"d:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n9:null\n"])</script><script>self.__next_f.push([1,"b:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"CCR\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"CCR managed service website\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"10:\"$b:metadata\"\n"])</script></body></html>

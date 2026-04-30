@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import SelectInput from "ink-select-input";
-import { runAgent, initialMessages, type AgentRun, type Reporter } from "./agent.js";
+import { runAgent, initialMessages, type AgentRun, type QuotaState, type Reporter } from "./agent.js";
 import type { Approver, ApprovalRequest as ToolApprovalRequest, ToolContext } from "./tools.js";
 import { saveSession, listSessions, newSessionId } from "./session.js";
 import path from "node:path";
@@ -49,7 +49,7 @@ interface AppProps {
   initialSessionId: string;
   initialApiMessages: any[];
   initialPrompt: string | null;
-  buildClient: () => any;
+  buildClient: (onQuota?: (q: QuotaState) => void) => any;
   loadProjectContext: () => Promise<string>;
 }
 
@@ -63,6 +63,27 @@ const KNOWN_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
   "meta-llama/llama-4-maverick-17b-128e-instruct",
 ];
+
+function formatResetDate(d: Date): string {
+  // "May 1" — short, no year (resets are always within ~30 days)
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function QuotaLine({ quota }: { quota: QuotaState }): React.ReactElement {
+  const ratio = quota.limit > 0 ? quota.used / quota.limit : 0;
+  const exceeded = ratio >= 1;
+  const warning = !exceeded && ratio >= 0.8;
+  const color = exceeded ? "red" : warning ? "yellow" : undefined;
+  const dim = !color;
+  return (
+    <Text color={color} dimColor={dim}>
+      quota {quota.used.toLocaleString()} / {quota.limit.toLocaleString()}
+      {" · resets "}
+      {formatResetDate(quota.resetAt)}
+      {exceeded ? " · LIMIT REACHED" : warning ? " · approaching limit" : ""}
+    </Text>
+  );
+}
 
 function colorizeDiffLine(line: string): React.ReactNode {
   if (line.startsWith("+++") || line.startsWith("---"))
@@ -274,6 +295,7 @@ export function App(props: AppProps) {
   const [mode, setMode] = useState<Mode>(props.mode);
   const [picker, setPicker] = useState<{ models: string[]; loading: boolean } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [quota, setQuotaState] = useState<QuotaState | null>(null);
 
   const apiMessagesRef = useRef<any[]>(props.initialApiMessages);
   const sessionIdRef = useRef<string>(props.initialSessionId);
@@ -336,11 +358,12 @@ export function App(props: AppProps) {
     },
     iterationCap: () => pushEntry({ kind: "system", text: "⚠ hit max iterations", tone: "warn" }),
     setStatus: (text) => setStatus(text),
+    setQuota: (state) => setQuotaState(state),
   };
 
   const fetchModels = useCallback(async (): Promise<string[]> => {
     try {
-      const client = props.buildClient();
+      const client = props.buildClient(setQuotaState);
       const list = await client.models.list();
       const ids: string[] = [];
       for await (const m of list as any) {
@@ -465,7 +488,7 @@ export function App(props: AppProps) {
 
       const ctx: ToolContext = { root: props.root, approve };
       const run: AgentRun = {
-        client: props.buildClient(),
+        client: props.buildClient(setQuotaState),
         model,
         ctx,
         reporter,
@@ -536,6 +559,7 @@ export function App(props: AppProps) {
           </Text>
           {"  "}· /help for commands
         </Text>
+        {quota && <QuotaLine quota={quota} />}
       </Box>
 
       <MessageList entries={entries} />

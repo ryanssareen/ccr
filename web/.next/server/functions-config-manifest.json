@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/cron/quota-reset": {
+      "maxDuration": 300
+    },
+    "/api/v1/exchangeFirebaseToken": {},
+    "/api/v1/chat/completions": {
+      "maxDuration": 60
+    },
+    "/api/v1/signupOrLogin": {}
+  }
+}

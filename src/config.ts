@@ -4,10 +4,17 @@ import os from "node:os";
 
 const CONFIG_DIR = path.join(os.homedir(), ".ccr");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
+const AUTH_PATH = path.join(CONFIG_DIR, "auth.json");
 
 export interface CcrConfig {
   groqApiKey?: string;
   model?: string;
+}
+
+export interface CcrAuth {
+  token: string;
+  endpoint: string;
+  email: string;
 }
 
 export async function loadConfig(): Promise<CcrConfig> {
@@ -25,6 +32,33 @@ export async function saveConfig(cfg: CcrConfig): Promise<void> {
   await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 
+export async function loadAuth(): Promise<CcrAuth | null> {
+  if (!existsSync(AUTH_PATH)) return null;
+  try {
+    const text = await fs.readFile(AUTH_PATH, "utf8");
+    const parsed = JSON.parse(text) as Partial<CcrAuth>;
+    if (
+      typeof parsed.token === "string" &&
+      typeof parsed.endpoint === "string" &&
+      parsed.token.length > 0 &&
+      parsed.endpoint.length > 0
+    ) {
+      return {
+        token: parsed.token,
+        endpoint: parsed.endpoint,
+        email: typeof parsed.email === "string" ? parsed.email : "",
+      };
+    }
+  } catch {}
+  return null;
+}
+
+export async function clearAuth(): Promise<void> {
+  if (existsSync(AUTH_PATH)) {
+    await fs.unlink(AUTH_PATH);
+  }
+}
+
 /** Apply config values to process.env if not already set. */
 export function applyConfig(cfg: CcrConfig): void {
   if (cfg.groqApiKey && !process.env.GROQ_API_KEY) {
@@ -37,4 +71,8 @@ export function applyConfig(cfg: CcrConfig): void {
 
 export function configPath(): string {
   return CONFIG_PATH;
+}
+
+export function authPath(): string {
+  return AUTH_PATH;
 }

@@ -2,10 +2,19 @@ import OpenAI from "openai";
 import { dispatch, toolSchemas, type ToolContext } from "./tools.js";
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
+export const PROXY_API_PATH = "/api/v1";
 // llama-3.1-8b-instant has the highest TPM cap on Groq's free tier (~30k vs 12k
 // for 70b/120b models), so requests that include CLAUDE.md / project context
 // don't immediately blow the rate limit. Switch via /model for stronger models.
 export const DEFAULT_MODEL = process.env.CCR_MODEL || "llama-3.1-8b-instant";
+
+export interface QuotaState {
+  used: number;
+  limit: number;
+  resetAt: Date;
+}
+
+export type QuotaListener = (state: QuotaState) => void;
 const MAX_ITERATIONS = 25;
 
 const SYSTEM_PROMPT = (root: string, projectContext: string) => `You are ccr, a terminal-native coding assistant operating inside the user's project directory.
@@ -21,15 +30,71 @@ Operating principles:
 Project root: ${root}
 ${projectContext}`;
 
-export function buildClient(apiKey?: string): OpenAI {
-  const key = apiKey || process.env.GROQ_API_KEY;
-  if (!key) {
-    throw new Error(
-      "No Groq API key found. Set GROQ_API_KEY or add it to ~/.ccr/config.json:\n" +
-        '  { "groqApiKey": "gsk_..." }',
-    );
+export interface BuildClientOptions {
+  /** Managed-mode token from ~/.ccr/auth.json. */
+  authToken?: string;
+  /** Managed-mode service endpoint (e.g., https://ccr.vercel.app). */
+  endpoint?: string;
+  /** Direct-mode Groq API key (legacy / escape hatch). */
+  apiKey?: string;
+  /** Called after every chat completion that returns CCR quota headers. */
+  onQuota?: QuotaListener;
+}
+
+export function buildClient(options: BuildClientOptions = {}): OpenAI {
+  const { authToken, endpoint, apiKey, onQuota } = options;
+
+  // Managed mode (preferred): hit the CCR proxy, which rotates across
+  // multiple LLM providers and tracks per-user quota.
+  if (authToken && endpoint) {
+    const baseURL = `${endpoint.replace(/\/+$/, "")}${PROXY_API_PATH}`;
+    return new OpenAI({
+      apiKey: authToken,
+      baseURL,
+      fetch: makeQuotaCapturingFetch(onQuota),
+    });
   }
-  return new OpenAI({ apiKey: key, baseURL: GROQ_BASE_URL });
+
+  // Direct mode (legacy): hit Groq directly with a user-provided key.
+  // Kept as an escape hatch for offline / power-user scenarios.
+  const directKey = apiKey || process.env.GROQ_API_KEY;
+  if (directKey) {
+    return new OpenAI({ apiKey: directKey, baseURL: GROQ_BASE_URL });
+  }
+
+  throw new Error(
+    "Not signed in. Run `ccr login` to sign up (free, no API key needed),\n" +
+      "or set GROQ_API_KEY for direct Groq access.",
+  );
+}
+
+/**
+ * Wraps the native fetch so we can sniff CCR-specific quota headers off
+ * every response (including streaming SSE) and forward them to the UI.
+ * The OpenAI SDK supports a custom fetch, which is cleaner than parsing
+ * after-the-fact.
+ */
+function makeQuotaCapturingFetch(onQuota?: QuotaListener): typeof fetch {
+  if (!onQuota) return globalThis.fetch;
+  return async (input: any, init?: any) => {
+    const res = await globalThis.fetch(input, init);
+    const used = res.headers.get("X-CCR-Quota-Used");
+    const limit = res.headers.get("X-CCR-Quota-Limit");
+    const resetAt = res.headers.get("X-CCR-Quota-Reset");
+    if (used !== null && limit !== null && resetAt !== null) {
+      const u = Number(used);
+      const l = Number(limit);
+      const r = new Date(resetAt);
+      if (Number.isFinite(u) && Number.isFinite(l) && !Number.isNaN(r.getTime())) {
+        try {
+          onQuota({ used: u, limit: l, resetAt: r });
+        } catch {
+          // never let UI-side errors take down the request
+        }
+      }
+    }
+    return res;
+  };
 }
 
 export function initialMessages(root: string, projectContext: string): any[] {
@@ -49,6 +114,8 @@ export interface Reporter {
   iterationCap?(): void;
   /** Transient status line (e.g., 'retrying in 30s'). Pass null to clear. */
   setStatus?(text: string | null): void;
+  /** Updated whenever the proxy returns fresh quota headers. */
+  setQuota?(state: QuotaState): void;
 }
 
 interface ToolCallAcc {

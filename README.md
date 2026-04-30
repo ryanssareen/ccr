@@ -1,48 +1,64 @@
 # ccr
 
-Clean-room terminal coding assistant backed by Groq. Reads your repo,
-proposes diffs, and runs shell commands with approval.
+Free terminal coding assistant. Reads your repo, proposes diffs, and
+runs shell commands with your approval. No API key required.
 
 ## Install
 
 ```bash
-# from this directory:
-npm install
-npm run build
-npm link        # makes the `ccr` command global
-
-# or install from npm once published:
-# npm install -g ccr-cli
+npm install -g @ryanisavibecoder/ccr
 ```
 
 ## Quick Start
 
-1. **Get a Groq API key:**
-   - Sign up at https://console.groq.com/
-   - Copy your API key
+```bash
+ccr login                         # sign up — opens your browser
+ccr "explain this codebase"       # one-shot
+ccr                               # interactive REPL
+```
 
-2. **Set the API key:**
-   ```bash
-   export GROQ_API_KEY=gsk_...
-   ccr "your prompt here"
-   ```
+That's it. `ccr login` creates a free account and provisions everything.
+The service routes your requests across multiple LLM providers (Groq,
+Together AI, Cerebras, OpenRouter) so individual users don't need to
+manage API keys.
 
-3. **Or add to `.env` in your project:**
-   ```
-   GROQ_API_KEY=gsk_...
-   ```
+### Free tier
+
+Every account gets **2,000 requests per month**. Usage is shown inline
+in the REPL header and at the end of every one-shot run. Resets on the
+1st of each month UTC.
+
+## Auth options
+
+```bash
+ccr login                # browser flow (default)
+ccr login --terminal     # email + password directly in the terminal
+ccr login --method github # force GitHub OAuth (browser only)
+```
+
+Credentials are stored at `~/.ccr/auth.json` (mode `0600`).
 
 ## Configure
 
 ```bash
-# Override the model (default: llama-3.1-8b-instant):
+# Override the default model:
 export CCR_MODEL=llama-3.3-70b-versatile
+
+# Point at a self-hosted or staging deployment:
+export CCR_ENDPOINT=https://my-ccr.example.com
 ```
 
-**API Key Options:**
-- Environment variable: `export GROQ_API_KEY=...`
-- `.env` file in project root
-- `~/.ccr/config.json`: `{ "groqApiKey": "gsk_..." }`
+## Bring your own key (advanced)
+
+If you'd rather skip the managed service and use Groq directly:
+
+```bash
+export GROQ_API_KEY=gsk_...
+ccr "your prompt"
+```
+
+This bypasses the proxy. You'll get a deprecation warning on each run
+but it still works for offline / power-user setups.
 
 ## Use
 

@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // /users/{uid}
+    // Users can read their own document only. All writes go through
+    // Cloud Functions using the Admin SDK, which bypasses these rules.
+    // Direct client writes are forbidden so quota counters and tokenHash
+    // cannot be tampered with.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // /providers/{name}
+    // Internal provider state (health, weights). Never exposed to clients.
+    // Cloud Functions read/write via Admin SDK.
+    match /providers/{providerId} {
+      allow read, write: if false;
+    }
+
+    // Default deny for any other paths.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

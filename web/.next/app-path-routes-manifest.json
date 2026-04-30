@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/v1/exchangeFirebaseToken/route": "/api/v1/exchangeFirebaseToken",
+  "/api/cron/quota-reset/route": "/api/cron/quota-reset",
+  "/api/v1/chat/completions/route": "/api/v1/chat/completions",
+  "/api/v1/signupOrLogin/route": "/api/v1/signupOrLogin",
+  "/cli-auth/page": "/cli-auth",
+  "/dashboard/page": "/dashboard",
+  "/login/page": "/login",
+  "/page": "/",
+  "/signup/page": "/signup"
+}

@@ -11,12 +11,15 @@ import {
   initialMessages,
   runAgent,
   type AgentRun,
+  type BuildClientOptions,
+  type QuotaState,
   type Reporter,
 } from "./agent.js";
 import { listSessions, loadSession, newSessionId, saveSession } from "./session.js";
 import type { Approver, ToolContext } from "./tools.js";
 import { App, type Mode } from "./app.js";
-import { applyConfig, loadConfig } from "./config.js";
+import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
+import { runTerminalAuth } from "./auth/terminal.js";
 
 const VERSION = "0.1.0";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
@@ -72,6 +75,7 @@ async function loadProjectContext(root: string): Promise<string> {
 }
 
 interface Args {
+  command: "login" | null;
   prompt: string[];
   print: boolean;
   resume: string | null | undefined;
@@ -79,12 +83,16 @@ interface Args {
   mode: Mode;
   model: string;
   cwd: string | null;
+  terminal: boolean;
+  noBrowser: boolean;
+  authMethod: "email" | "github";
   showHelp: boolean;
   showVersion: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
+    command: null,
     prompt: [],
     print: false,
     resume: undefined,
@@ -92,6 +100,9 @@ function parseArgs(argv: string[]): Args {
     mode: "ask",
     model: DEFAULT_MODEL,
     cwd: null,
+    terminal: false,
+    noBrowser: false,
+    authMethod: "email",
     showHelp: false,
     showVersion: false,
   };
@@ -147,7 +158,27 @@ function parseArgs(argv: string[]): Args {
       case "--cwd":
         args.cwd = argv[++i];
         break;
+      case "--terminal":
+        args.terminal = true;
+        break;
+      case "--no-browser":
+        args.noBrowser = true;
+        break;
+      case "--method": {
+        const v = argv[++i];
+        if (v === "email" || v === "github") {
+          args.authMethod = v;
+        } else {
+          console.error(`unknown --method value: ${v}`);
+          process.exit(2);
+        }
+        break;
+      }
       default:
+        if (!args.command && a === "login") {
+          args.command = "login";
+          break;
+        }
         args.prompt.push(a);
     }
   }
@@ -168,8 +199,14 @@ Options:
   --yolo, --bypass         Auto-approve everything (alias for --mode bypass).
   --model NAME             Override Groq model (default: ${DEFAULT_MODEL}).
   --cwd DIR                Project root (default: cwd).
+  --terminal               Use terminal email/password login flow.
+  --no-browser             Alias for --terminal during login.
+  --method METHOD          Auth method for login: email | github.
   -V, --version            Print version.
   -h, --help               Show this help.
+
+Commands:
+  login                    Authenticate with CCR.
 
 REPL slash commands: /help /clear /model /models /mode /yolo /sessions /save /exit
 `);
@@ -248,10 +285,25 @@ function consoleReporter(): Reporter {
   };
 }
 
-async function runOneShot(args: Args, root: string): Promise<number> {
+function buildClientOptionsFor(
+  auth: CcrAuth | null,
+  onQuota?: (q: QuotaState) => void,
+): BuildClientOptions {
+  if (auth) {
+    return { authToken: auth.token, endpoint: auth.endpoint, onQuota };
+  }
+  if (process.env.GROQ_API_KEY) {
+    return { apiKey: process.env.GROQ_API_KEY };
+  }
+  // buildClient will throw a friendly error.
+  return {};
+}
+
+async function runOneShot(args: Args, root: string, auth: CcrAuth | null): Promise<number> {
   let client;
+  const quotaRef: { current: QuotaState | null } = { current: null };
   try {
-    client = buildClient();
+    client = buildClient(buildClientOptionsFor(auth, (q) => { quotaRef.current = q; }));
   } catch (e: any) {
     console.error(kleur.red(e.message));
     return 1;
@@ -287,14 +339,25 @@ async function runOneShot(args: Args, root: string): Promise<number> {
     }
     await saveSession(root, sessionId, messages);
   }
+  const lastQuota = quotaRef.current;
+  if (lastQuota) {
+    const reset = lastQuota.resetAt.toLocaleDateString("en-US", {
+      month: "short", day: "numeric", timeZone: "UTC",
+    });
+    console.log(
+      kleur.dim(
+        `\nquota ${lastQuota.used.toLocaleString()} / ${lastQuota.limit.toLocaleString()} · resets ${reset}`,
+      ),
+    );
+  }
   rl.close();
   return 0;
 }
 
-async function runInteractive(args: Args, root: string): Promise<number> {
-  // Verify Groq key up front so the user gets a clean error before Ink starts.
+async function runInteractive(args: Args, root: string, auth: CcrAuth | null): Promise<number> {
+  // Verify auth/keys up front so the user gets a clean error before Ink starts.
   try {
-    buildClient();
+    buildClient(buildClientOptionsFor(auth));
   } catch (e: any) {
     console.error(kleur.red(e.message));
     return 1;
@@ -326,13 +389,32 @@ async function runInteractive(args: Args, root: string): Promise<number> {
       initialSessionId: sessionId,
       initialApiMessages: messages,
       initialPrompt,
-      buildClient,
+      buildClient: (onQuota) => buildClient(buildClientOptionsFor(auth, onQuota)),
       loadProjectContext: () => loadProjectContext(root),
     }),
     { exitOnCtrlC: false },
   );
   await waitUntilExit();
   return 0;
+}
+
+async function runLogin(args: Args): Promise<number> {
+  if (args.terminal || args.noBrowser) {
+    return runTerminalAuth({ method: args.authMethod });
+  }
+
+  try {
+    const browserModulePath = `./auth/${"browser"}.js`;
+    const browserModule = (await import(browserModulePath)) as {
+      runBrowserAuth?: (options?: { method?: "email" | "github" }) => Promise<number>;
+    };
+    if (typeof browserModule.runBrowserAuth === "function") {
+      return browserModule.runBrowserAuth({ method: args.authMethod });
+    }
+  } catch {}
+
+  console.error(kleur.red("Browser login is not available in this build. Run `ccr login --terminal`."));
+  return 1;
 }
 
 async function main(): Promise<number> {
@@ -350,6 +432,19 @@ async function main(): Promise<number> {
   applyConfig(await loadConfig());
   loadDotEnv(root);
 
+  if (args.command === "login") {
+    return runLogin(args);
+  }
+
+  const auth = await loadAuth();
+  if (!auth && process.env.GROQ_API_KEY) {
+    process.stderr.write(
+      kleur.yellow(
+        "warning: GROQ_API_KEY direct mode is deprecated. Run `ccr login` to switch to the free managed service.\n",
+      ),
+    );
+  }
+
   if (args.listSessions) {
     const sessions = await listSessions(root);
     if (!sessions.length) {
@@ -361,10 +456,10 @@ async function main(): Promise<number> {
   }
 
   if (args.print) {
-    return runOneShot(args, root);
+    return runOneShot(args, root, auth);
   }
   // Default: interactive Ink UI. If there's an initial prompt it runs first.
-  return runInteractive(args, root);
+  return runInteractive(args, root, auth);
 }
 
 main().then((code) => process.exit(code ?? 0));

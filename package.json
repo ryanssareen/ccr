@@ -1,7 +1,7 @@
 {
   "name": "@ryanisavibecoder/ccr",
-  "version": "1.1.1",
-  "description": "Clean-room terminal coding assistant backed by Groq.",
+  "version": "1.2.0",
+  "description": "Free terminal coding assistant. No API key required — sign up with `ccr login`.",
   "license": "MIT",
   "type": "module",
   "bin": {
