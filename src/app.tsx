@@ -3,7 +3,14 @@ import { Box, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import SelectInput from "ink-select-input";
-import { runAgent, initialMessages, type AgentRun, type QuotaState, type Reporter } from "./agent.js";
+import {
+  runAgent,
+  initialMessages,
+  makeSubagentRunner,
+  type AgentRun,
+  type QuotaState,
+  type Reporter,
+} from "./agent.js";
 import type {
   Approver,
   ApprovalRequest as ToolApprovalRequest,
@@ -618,9 +625,11 @@ export function App(props: AppProps) {
       const ac = new AbortController();
       abortRef.current = ac;
 
+      const client = props.buildClient(setQuotaState);
       const ctx: ToolContext = { root: props.root, approve, ask };
+      ctx.runSubagent = makeSubagentRunner(client, ctx, model, reporter);
       const run: AgentRun = {
-        client: props.buildClient(setQuotaState),
+        client,
         model,
         ctx,
         reporter,
@@ -678,7 +687,7 @@ export function App(props: AppProps) {
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
         <Text>
-          <Text bold>ccr 1.2.3</Text>
+          <Text bold>ccr 1.3.0</Text>
           <Text dimColor> · model=</Text>
           <Text color="cyan">{model}</Text>
           <Text dimColor> · root=</Text>

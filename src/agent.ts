@@ -1,5 +1,10 @@
 import OpenAI from "openai";
-import { dispatch, toolSchemas, type ToolContext } from "./tools.js";
+import {
+  dispatch,
+  toolSchemas,
+  type ToolContext,
+  type SubagentRunOptions,
+} from "./tools.js";
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const PROXY_API_PATH = "/api/v1";
@@ -28,6 +33,7 @@ Operating principles:
 - For modifications, prefer edit_file or multi_edit. The user sees a diff and approves.
 - Use bash for tests, builds, git, and other shell tasks. The user approves each command.
 - When a request is genuinely ambiguous and a wrong guess would waste work, call ask_user_question with 1-3 short multiple-choice questions (each option list automatically gets a free-text "Other" path). Do NOT use it for things you can decide yourself or for trivial preferences.
+- For large or parallelizable jobs (multi-file research, broad investigation, batch refactor) you can deploy a focused subagent via spawn_agent. Tell the user you're deploying an agent before calling. If the user did not specify which model the subagent should use, first call ask_user_question with a short list of plausible models so they can pick. Subagents share the user's approval flow — they cannot bypass it.
 - If a tool call is denied, revise your plan; never retry the same denied action.
 - When the task is complete, give a short final summary.
 
@@ -254,14 +260,35 @@ function toolValidationError(err: any): string | null {
   return null;
 }
 
+// Greeting / non-task detection. When the latest user turn is a pure greeting,
+// thanks, or other no-ask filler, we send tool_choice: "none" so the model
+// physically cannot emit a tool call for that turn. This is enforced at the
+// API layer (Groq honors tool_choice), not just via prompt suggestion.
+const GREETING_RE =
+  /^(?:hi+|hey+|hello+|yo|sup|howdy|thanks?(?:\s+you)?|thx|ty|cheers|cool|nice|ok(?:ay)?|got\s*it|sure|sounds\s+good|np|no\s+problem|gm|gn|good\s+(?:morning|night|afternoon|evening))\b[\s.!?,]*$/i;
+
+function looksLikeNonTask(messages: any[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role !== "user") continue;
+    const text = typeof m.content === "string" ? m.content.trim() : "";
+    // only short messages can be "just a greeting"; anything 60+ chars is a task
+    if (!text || text.length > 60) return false;
+    return GREETING_RE.test(text);
+  }
+  return false;
+}
+
 async function step(run: AgentRun, messages: any[]): Promise<boolean> {
   compactOldToolResults(messages);
+  const tools = toolSchemas(run.ctx.isSubagent ? new Set(["spawn_agent"]) : undefined);
+  const tool_choice: "auto" | "none" = looksLikeNonTask(messages) ? "none" : "auto";
   const stream = await run.client.chat.completions.create(
     {
       model: run.model,
       messages,
-      tools: toolSchemas(),
-      tool_choice: "auto",
+      tools,
+      tool_choice,
       stream: true,
     },
     { signal: run.signal },
@@ -413,3 +440,70 @@ export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
   }
   run.reporter.iterationCap?.();
 }
+
+
+const SUBAGENT_SYSTEM_PROMPT = (role: string, root: string) =>
+  `You are a "${role}" subagent inside ccr, deployed by a parent agent to handle one focused task. Reply in 1-3 short paragraphs at the end.
+
+Operating rules:
+- Stay focused on the assigned task. Do not start unrelated work.
+- You have the same tools as the parent EXCEPT spawn_agent (no further nesting).
+- Edits and shell commands still go through the user's approval flow.
+- When done, give a tight final summary; no preamble.
+
+Project root: ${root}`;
+
+/**
+ * Build a runSubagent function bound to a parent client. Inject this into
+ * ToolContext.runSubagent so spawn_agent can dispatch into a child runAgent
+ * loop without circular imports.
+ */
+export function makeSubagentRunner(
+  client: OpenAI,
+  parentCtx: ToolContext,
+  defaultModel: string,
+  parentReporter: Reporter,
+) {
+  return async (opts: SubagentRunOptions): Promise<string> => {
+    const subModel = opts.model || defaultModel;
+    parentReporter.setStatus?.(`🤖 ${opts.role} agent (${subModel}) running…`);
+    const childMessages: any[] = [
+      { role: "system", content: SUBAGENT_SYSTEM_PROMPT(opts.role, parentCtx.root) },
+      { role: "user", content: opts.task },
+    ];
+    let finalContent = "";
+    const childReporter: Reporter = {
+      token: () => {},
+      assistantTurnEnd: (text: string) => {
+        if (text && text.trim()) finalContent = text;
+      },
+      toolCallStart: (name: string, argsPreview: string) => {
+        opts.onToolCall?.(name, argsPreview);
+      },
+      toolCallEnd: () => {},
+      setStatus: () => {},
+    };
+    const childCtx: ToolContext = {
+      root: parentCtx.root,
+      approve: parentCtx.approve,
+      ask: parentCtx.ask,
+      isSubagent: true,
+      // runSubagent is intentionally absent: enforced by step() schema filter,
+      // and double-checked by the spawn_agent tool itself.
+    };
+    const childRun: AgentRun = {
+      client,
+      model: subModel,
+      ctx: childCtx,
+      reporter: childReporter,
+      signal: opts.signal,
+    };
+    try {
+      await runAgent(childRun, childMessages);
+    } finally {
+      parentReporter.setStatus?.(null);
+    }
+    return finalContent.trim() || "(subagent produced no final summary)";
+  };
+}
+

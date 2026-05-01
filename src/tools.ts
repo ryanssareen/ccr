@@ -48,10 +48,27 @@ export interface AskAnswer {
 
 export type Asker = (req: AskRequest) => Promise<AskAnswer[]>;
 
+export interface SubagentRunOptions {
+  task: string;
+  model?: string;
+  role: string;
+  reason: string;
+  signal?: AbortSignal;
+  onStatus?: (text: string | null) => void;
+  onToolCall?: (name: string, argsPreview: string) => void;
+}
+
+/** Injected by the agent harness so spawn_agent can recurse without circular imports. */
+export type SubagentRunner = (opts: SubagentRunOptions) => Promise<string>;
+
 export interface ToolContext {
   root: string;
   approve: Approver;
   ask?: Asker;
+  /** True inside a subagent. Used to forbid further nesting. */
+  isSubagent?: boolean;
+  /** Spawn a subagent. Set by cli.ts / app.tsx; absent inside subagents. */
+  runSubagent?: SubagentRunner;
 }
 
 export interface ToolDef {
@@ -454,6 +471,46 @@ const askUserQuestionTool: ToolDef = {
   },
 };
 
+const spawnAgentTool: ToolDef = {
+  name: "spawn_agent",
+  description:
+    "Deploy a focused subagent to handle a self-contained task (multi-step research, parallel investigation, multi-file refactor). The subagent shares your tools and the user's approval flow but runs its own conversation loop. Returns the subagent's final summary as a string. Cannot be called from inside a subagent. Tell the user you are deploying an agent before calling this.",
+  readOnly: false,
+  parameters: {
+    type: "object",
+    properties: {
+      task: {
+        type: "string",
+        description:
+          "Self-contained task description for the subagent. Include all the context it needs — it cannot see the parent conversation.",
+      },
+      role: {
+        type: "string",
+        description: "Short role label, e.g. 'researcher', 'editor', 'runner', 'reviewer'.",
+      },
+      model: {
+        type: "string",
+        description:
+          "Optional model id for the subagent (e.g. 'llama-3.3-70b-versatile'). If omitted, parent's model is used. Ask the user via ask_user_question if you're unsure which model to use.",
+      },
+      reason: {
+        type: "string",
+        description: "One-sentence reason this subagent is needed.",
+      },
+    },
+    required: ["task", "role", "reason"],
+  },
+  async run(ctx, { task, role, model, reason }) {
+    if (ctx.isSubagent) return "ERROR: subagents cannot spawn further subagents";
+    if (typeof ctx.runSubagent !== "function")
+      return "ERROR: subagent spawning is not available in this session";
+    if (typeof task !== "string" || !task.trim()) return "ERROR: task is required";
+    if (typeof role !== "string" || !role.trim()) return "ERROR: role is required";
+    if (typeof reason !== "string" || !reason.trim()) return "ERROR: reason is required";
+    return ctx.runSubagent({ task, role, model, reason });
+  },
+};
+
 export const TOOLS: ToolDef[] = [
   readFileTool,
   writeFileTool,
@@ -464,14 +521,16 @@ export const TOOLS: ToolDef[] = [
   grepTool,
   bashTool,
   askUserQuestionTool,
+  spawnAgentTool,
 ];
 
 export const TOOL_BY_NAME: Record<string, ToolDef> = Object.fromEntries(
   TOOLS.map((t) => [t.name, t]),
 );
 
-export function toolSchemas() {
-  return TOOLS.map((t) => ({
+export function toolSchemas(exclude?: Set<string>) {
+  const filtered = exclude && exclude.size ? TOOLS.filter((t) => !exclude.has(t.name)) : TOOLS;
+  return filtered.map((t) => ({
     type: "function" as const,
     function: {
       name: t.name,
