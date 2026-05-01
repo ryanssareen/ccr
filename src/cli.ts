@@ -9,6 +9,7 @@ import {
   buildClient,
   DEFAULT_MODEL,
   initialMessages,
+  makeSubagentRunner,
   runAgent,
   type AgentRun,
   type BuildClientOptions,
@@ -21,7 +22,7 @@ import { App, type Mode } from "./app.js";
 import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
-const VERSION = "1.2.3";
+const VERSION = "1.3.0";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {
@@ -367,12 +368,14 @@ async function runOneShot(args: Args, root: string, auth: CcrAuth | null): Promi
   }
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const reporter = consoleReporter();
   const ctx: ToolContext = {
     root,
     approve: consoleApprover(args.mode, rl),
     ask: consoleAsker(rl),
   };
-  const run: AgentRun = { client, model: args.model, ctx, reporter: consoleReporter() };
+  ctx.runSubagent = makeSubagentRunner(client, ctx, args.model, reporter);
+  const run: AgentRun = { client, model: args.model, ctx, reporter };
 
   const initialPrompt = args.prompt.join(" ").trim();
   if (initialPrompt) {
