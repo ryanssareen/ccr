@@ -169,6 +169,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     await refundQuotaSlot(user.uid);
 
     if (err instanceof ProviderUnavailableError) {
+      console.error("[proxy] all providers failed", {
+        retryAfter: err.retryAfterSeconds,
+        failures: err.failures,
+      });
       return errorResponse(
         503,
         "all providers are currently unavailable; please retry shortly",
