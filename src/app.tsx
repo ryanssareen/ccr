@@ -248,6 +248,42 @@ interface ModelPickerProps {
   onCancel: () => void;
 }
 
+interface ModePickerProps {
+  current: Mode;
+  onSelect: (mode: Mode) => void;
+  onCancel: () => void;
+}
+
+function ModePicker({ current, onSelect, onCancel }: ModePickerProps) {
+  useInput((_input, key) => {
+    if (key.escape) onCancel();
+  });
+  const items: { label: string; value: Mode }[] = (
+    ["ask", "accept-edits", "bypass"] as Mode[]
+  ).map((m) => ({
+    label:
+      (m === current ? "● " : "  ") +
+      m +
+      "  " +
+      MODE_LABEL[m] +
+      (m === current ? "  (current)" : ""),
+    value: m,
+  }));
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
+      <Text bold color="yellow">
+        Pick a mode
+      </Text>
+      <Box marginTop={1} flexDirection="column">
+        <SelectInput items={items} onSelect={(item) => onSelect(item.value)} />
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>↑↓ navigate · Enter pick · Esc cancel</Text>
+      </Box>
+    </Box>
+  );
+}
+
 function ModelPicker({ models, current, loading, onSelect, onCancel }: ModelPickerProps) {
   const [filter, setFilter] = useState("");
   useInput((_input, key) => {
@@ -294,6 +330,7 @@ export function App(props: AppProps) {
   const [model, setModel] = useState<string>(props.model);
   const [mode, setMode] = useState<Mode>(props.mode);
   const [picker, setPicker] = useState<{ models: string[]; loading: boolean } | null>(null);
+  const [modePicker, setModePicker] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [quota, setQuotaState] = useState<QuotaState | null>(null);
 
@@ -404,7 +441,7 @@ export function App(props: AppProps) {
               "  /clear                reset conversation\n" +
               "  /model [NAME]         switch model; no arg → picker with autocomplete\n" +
               "  /models               list known model names\n" +
-              "  /mode [NAME]          ask | accept-edits | bypass; no arg → cycle\n" +
+              "  /mode [NAME]          ask | accept-edits | bypass; no arg → picker\n" +
               "  /yolo                 alias for /mode bypass\n" +
               "  /sessions             list saved sessions\n" +
               "  /save                 save session now\n" +
@@ -430,10 +467,7 @@ export function App(props: AppProps) {
         }
         if (cmd === "/mode") {
           if (!arg) {
-            const order: Mode[] = ["ask", "accept-edits", "bypass"];
-            const next = order[(order.indexOf(modeRef.current) + 1) % order.length];
-            setMode(next);
-            pushEntry({ kind: "system", text: `mode → ${next}: ${MODE_LABEL[next]}`, tone: "warn" });
+            setModePicker(true);
             return;
           }
           if (arg === "ask" || arg === "accept-edits" || arg === "bypass") {
@@ -527,7 +561,7 @@ export function App(props: AppProps) {
   }, []);
 
   useInput((char, key) => {
-    if (approval || picker) return;
+    if (approval || picker || modePicker) return;
     if (key.ctrl && (char === "c" || char === "C")) {
       if (running && abortRef.current) {
         abortRef.current.abort();
@@ -605,6 +639,22 @@ export function App(props: AppProps) {
         />
       )}
 
+      {modePicker && (
+        <ModePicker
+          current={mode}
+          onSelect={(next) => {
+            setModePicker(false);
+            setMode(next);
+            pushEntry({
+              kind: "system",
+              text: `mode → ${next}: ${MODE_LABEL[next]}`,
+              tone: "warn",
+            });
+          }}
+          onCancel={() => setModePicker(false)}
+        />
+      )}
+
       <Box marginTop={1}>
         {running ? (
           <Box flexDirection="column">
@@ -619,6 +669,8 @@ export function App(props: AppProps) {
           <Text dimColor>(awaiting approval — y / n{approval.kind === "edit" ? " / a" : ""})</Text>
         ) : picker ? (
           <Text dimColor>(picking model — type to filter, Enter to choose)</Text>
+        ) : modePicker ? (
+          <Text dimColor>(picking mode — Enter to choose, Esc to cancel)</Text>
         ) : (
           <Box>
             <Text color="cyan" bold>
