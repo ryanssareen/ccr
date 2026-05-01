@@ -34,8 +34,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let decoded: Awaited<ReturnType<typeof adminAuth.verifyIdToken>>;
   try {
     decoded = await adminAuth.verifyIdToken(body.idToken, true);
-  } catch {
-    return bad("invalid or expired idToken", 401);
+  } catch (err) {
+    const code = (err as { code?: string }).code ?? "unknown";
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[exchangeFirebaseToken] verifyIdToken failed", { code, message });
+    if (message.includes("FIREBASE_ADMIN_SDK_KEY")) {
+      return bad("server misconfigured: admin sdk", 500);
+    }
+    return bad(`invalid or expired idToken: ${code}`, 401);
   }
 
   const email = decoded.email;

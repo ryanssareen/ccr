@@ -140,8 +140,11 @@ async function handleGithub(creds: { idToken: string }): Promise<NextResponse> {
   let decoded: Awaited<ReturnType<typeof adminAuth.verifyIdToken>>;
   try {
     decoded = await adminAuth.verifyIdToken(creds.idToken);
-  } catch {
-    return bad("invalid idToken", 401);
+  } catch (err) {
+    const code = (err as { code?: string }).code ?? "unknown";
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[signupOrLogin] verifyIdToken failed", { code, message });
+    return bad(`invalid idToken: ${code}`, 401);
   }
 
   if (decoded.firebase.sign_in_provider !== "github.com") {
