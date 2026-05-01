@@ -687,7 +687,7 @@ export function App(props: AppProps) {
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
         <Text>
-          <Text bold>ccr 1.3.0</Text>
+          <Text bold>ccr 1.3.1</Text>
           <Text dimColor> · model=</Text>
           <Text color="cyan">{model}</Text>
           <Text dimColor> · root=</Text>

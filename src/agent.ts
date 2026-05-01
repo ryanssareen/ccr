@@ -262,19 +262,44 @@ function toolValidationError(err: any): string | null {
 
 // Greeting / non-task detection. When the latest user turn is a pure greeting,
 // thanks, or other no-ask filler, we send tool_choice: "none" so the model
-// physically cannot emit a tool call for that turn. This is enforced at the
-// API layer (Groq honors tool_choice), not just via prompt suggestion.
+// physically cannot emit a tool call for that turn. Enforced at the API
+// contract layer (Groq honors tool_choice), not just via prompt wording.
+//
+// Mirror of web/lib/non-task-detector.ts — keep both in sync. The proxy is
+// the authoritative enforcer; this client copy is a fast-path so we don't
+// burn a round-trip when the answer is obvious.
 const GREETING_RE =
-  /^(?:hi+|hey+|hello+|yo|sup|howdy|thanks?(?:\s+you)?|thx|ty|cheers|cool|nice|ok(?:ay)?|got\s*it|sure|sounds\s+good|np|no\s+problem|gm|gn|good\s+(?:morning|night|afternoon|evening))\b[\s.!?,]*$/i;
+  /^(?:hi+|hey+|hello+|yo+|sup|howdy|thanks?(?:\s+(?:you|so\s+much|a\s+lot|man|dude))?|thx|ty|cheers|cool|nice|ok(?:ay)?|got\s*it|sure|sounds\s+good|np|no\s+problem|gm|gn|good\s+(?:morning|night|afternoon|evening)|great|awesome|perfect|amazing|wonderful|excellent|fantastic|alright|right|fine|wow|lol|haha|👋|👍|🙏|❤️)\b[\s.!?,👋👍🙏❤️🤝]*$/i;
+
+const TASK_SIGNALS = new Set([
+  "read", "write", "edit", "fix", "build", "test", "run", "list", "show",
+  "find", "grep", "search", "check", "do", "make", "get", "install", "deploy",
+  "create", "update", "delete", "remove", "refactor", "explain", "describe",
+  "review", "debug", "help", "can", "could", "would", "will", "please",
+  "what", "why", "how", "when", "where", "who", "which",
+]);
+
+function isLikelyNonTask(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 60) return false;
+  if (GREETING_RE.test(trimmed)) return true;
+  if (trimmed.length <= 30) {
+    if (trimmed.includes("?")) return false;
+    const tokens = trimmed.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    if (tokens.length === 0) return true;
+    if (tokens.some((t) => TASK_SIGNALS.has(t))) return false;
+    return true;
+  }
+  return false;
+}
 
 function looksLikeNonTask(messages: any[]): boolean {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (m?.role !== "user") continue;
-    const text = typeof m.content === "string" ? m.content.trim() : "";
-    // only short messages can be "just a greeting"; anything 60+ chars is a task
-    if (!text || text.length > 60) return false;
-    return GREETING_RE.test(text);
+    const text = typeof m.content === "string" ? m.content : "";
+    return isLikelyNonTask(text);
   }
   return false;
 }

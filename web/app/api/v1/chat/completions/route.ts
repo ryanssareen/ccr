@@ -14,6 +14,7 @@ import {
   refundQuotaSlot,
   reserveQuotaSlot,
 } from "@/lib/quota";
+import { lastUserIsNonTask } from "@/lib/non-task-detector";
 
 // Admin SDK requires Node runtime, not Edge.
 export const runtime = "nodejs";
@@ -118,6 +119,15 @@ export async function POST(req: NextRequest): Promise<Response> {
     return errorResponse(400, parsed);
   }
   const chatRequest = parsed;
+
+  // 1b. Enforce: if the latest user turn is a pure greeting / acknowledgement,
+  //     force tool_choice="none" regardless of what the client requested. The
+  //     model is then physically unable to emit a tool call for this turn.
+  //     This is the proxy-level guarantee — every client sees it, not just
+  //     our own CLI.
+  if (lastUserIsNonTask(chatRequest.messages)) {
+    chatRequest.tool_choice = "none";
+  }
 
   // 2. Authenticate.
   const bearer = extractBearer(req);
