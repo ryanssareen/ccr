@@ -4,7 +4,15 @@ import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import SelectInput from "ink-select-input";
 import { runAgent, initialMessages, type AgentRun, type QuotaState, type Reporter } from "./agent.js";
-import type { Approver, ApprovalRequest as ToolApprovalRequest, ToolContext } from "./tools.js";
+import type {
+  Approver,
+  ApprovalRequest as ToolApprovalRequest,
+  Asker,
+  AskAnswer,
+  AskQuestion,
+  AskRequest,
+  ToolContext,
+} from "./tools.js";
 import { saveSession, listSessions, newSessionId } from "./session.js";
 import path from "node:path";
 
@@ -40,6 +48,10 @@ type Entry = ToolEntry | AssistantEntry | UserEntry | SystemEntry;
 
 interface PendingApproval extends ToolApprovalRequest {
   resolve: (approved: boolean) => void;
+}
+
+interface PendingAsk extends AskRequest {
+  resolve: (answers: AskAnswer[]) => void;
 }
 
 interface AppProps {
@@ -200,6 +212,79 @@ function MessageList({ entries }: { entries: Entry[] }) {
   );
 }
 
+function QuestionPanel({
+  req,
+  onComplete,
+}: {
+  req: PendingAsk;
+  onComplete: (answers: AskAnswer[]) => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [collected, setCollected] = useState<AskAnswer[]>([]);
+  const [freeText, setFreeText] = useState("");
+  const [mode, setMode] = useState<"select" | "freetext">("select");
+  const q: AskQuestion | undefined = req.questions[step];
+
+  const finish = (next: AskAnswer[]) => {
+    if (step + 1 >= req.questions.length) {
+      onComplete(next);
+    } else {
+      setCollected(next);
+      setStep(step + 1);
+      setFreeText("");
+      setMode("select");
+    }
+  };
+
+  if (!q) return null;
+  const baseItems = (q.options ?? []).map((o, i) => ({ label: o, value: `opt:${i}` }));
+  const items = [...baseItems, { label: "Other (free text)…", value: "__other__" }];
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} marginY={1}>
+      <Text bold color="magenta">
+        ? ccr asks ({step + 1}/{req.questions.length})
+      </Text>
+      <Box marginTop={1}>
+        <Text>{q.question}</Text>
+      </Box>
+      {mode === "select" ? (
+        <Box marginTop={1} flexDirection="column">
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__other__") {
+                setMode("freetext");
+                return;
+              }
+              const idx = parseInt(String(item.value).slice(4), 10);
+              const answer = q.options[idx];
+              finish([...collected, { answer }]);
+            }}
+          />
+        </Box>
+      ) : (
+        <Box marginTop={1}>
+          <Text dimColor>your answer: </Text>
+          <TextInput
+            value={freeText}
+            onChange={setFreeText}
+            onSubmit={(v) => {
+              const trimmed = v.trim() || "(no answer)";
+              finish([...collected, { answer: trimmed }]);
+            }}
+          />
+        </Box>
+      )}
+      <Box marginTop={1}>
+        <Text dimColor>
+          {mode === "select" ? "↑↓ navigate · Enter pick" : "Enter to submit"}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
 function ApprovalPanel({
   req,
   onAnswer,
@@ -326,6 +411,7 @@ export function App(props: AppProps) {
   const [running, setRunning] = useState<boolean>(false);
   const [input, setInput] = useState<string>("");
   const [approval, setApproval] = useState<PendingApproval | null>(null);
+  const [askRequest, setAskRequest] = useState<PendingAsk | null>(null);
   const [exitConfirm, setExitConfirm] = useState<boolean>(false);
   const [model, setModel] = useState<string>(props.model);
   const [mode, setMode] = useState<Mode>(props.mode);
@@ -370,6 +456,18 @@ export function App(props: AppProps) {
     },
     [pushEntry],
   );
+
+  const ask: Asker = useCallback((req) => {
+    return new Promise<AskAnswer[]>((resolve) => {
+      setAskRequest({
+        ...req,
+        resolve: (answers) => {
+          setAskRequest(null);
+          resolve(answers);
+        },
+      });
+    });
+  }, []);
 
   const reporter: Reporter = {
     token: (s) => setStreaming((cur) => cur + s),
@@ -520,7 +618,7 @@ export function App(props: AppProps) {
       const ac = new AbortController();
       abortRef.current = ac;
 
-      const ctx: ToolContext = { root: props.root, approve };
+      const ctx: ToolContext = { root: props.root, approve, ask };
       const run: AgentRun = {
         client: props.buildClient(setQuotaState),
         model,
@@ -548,7 +646,7 @@ export function App(props: AppProps) {
         }
       }
     },
-    [running, exit, props, pushEntry, approve, model, openPicker],
+    [running, exit, props, pushEntry, approve, ask, model, openPicker],
   );
 
   useEffect(() => {
@@ -561,7 +659,7 @@ export function App(props: AppProps) {
   }, []);
 
   useInput((char, key) => {
-    if (approval || picker || modePicker) return;
+    if (approval || askRequest || picker || modePicker) return;
     if (key.ctrl && (char === "c" || char === "C")) {
       if (running && abortRef.current) {
         abortRef.current.abort();
@@ -580,7 +678,7 @@ export function App(props: AppProps) {
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
         <Text>
-          <Text bold>ccr 0.1.0</Text>
+          <Text bold>ccr 1.2.3</Text>
           <Text dimColor> · model=</Text>
           <Text color="cyan">{model}</Text>
           <Text dimColor> · root=</Text>
@@ -622,6 +720,13 @@ export function App(props: AppProps) {
             });
             approval.resolve(true);
           }}
+        />
+      )}
+
+      {askRequest && (
+        <QuestionPanel
+          req={askRequest}
+          onComplete={(answers) => askRequest.resolve(answers)}
         />
       )}
 
@@ -667,6 +772,8 @@ export function App(props: AppProps) {
           </Box>
         ) : approval ? (
           <Text dimColor>(awaiting approval — y / n{approval.kind === "edit" ? " / a" : ""})</Text>
+        ) : askRequest ? (
+          <Text dimColor>(answering ccr's question — ↑↓ navigate, Enter to pick)</Text>
         ) : picker ? (
           <Text dimColor>(picking model — type to filter, Enter to choose)</Text>
         ) : modePicker ? (

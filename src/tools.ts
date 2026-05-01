@@ -33,9 +33,25 @@ export interface ApprovalRequest {
 
 export type Approver = (req: ApprovalRequest) => Promise<boolean>;
 
+export interface AskQuestion {
+  question: string;
+  options: string[];
+}
+
+export interface AskRequest {
+  questions: AskQuestion[];
+}
+
+export interface AskAnswer {
+  answer: string;
+}
+
+export type Asker = (req: AskRequest) => Promise<AskAnswer[]>;
+
 export interface ToolContext {
   root: string;
   approve: Approver;
+  ask?: Asker;
 }
 
 export interface ToolDef {
@@ -390,6 +406,54 @@ const bashTool: ToolDef = {
   },
 };
 
+const askUserQuestionTool: ToolDef = {
+  name: "ask_user_question",
+  description:
+    "Ask the user 1-3 short clarifying questions when the request is genuinely ambiguous. Each question presents multiple-choice options plus a free-text 'Other' path. Do NOT use for trivial preferences or things you can decide yourself.",
+  readOnly: true,
+  parameters: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        minItems: 1,
+        maxItems: 3,
+        items: {
+          type: "object",
+          properties: {
+            question: { type: "string", description: "The clarifying question, kept short." },
+            options: {
+              type: "array",
+              description:
+                "2-5 concise multiple-choice options. A free-text 'Other' choice is added automatically.",
+              items: { type: "string" },
+            },
+          },
+          required: ["question", "options"],
+        },
+      },
+    },
+    required: ["questions"],
+  },
+  async run(ctx, { questions }) {
+    if (!Array.isArray(questions) || questions.length === 0)
+      return "ERROR: questions list is empty";
+    if (questions.length > 3) return "ERROR: at most 3 questions per call";
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q || typeof q.question !== "string")
+        return `ERROR: question ${i} missing 'question' field`;
+      if (!Array.isArray(q.options)) return `ERROR: question ${i} 'options' must be an array`;
+    }
+    if (typeof ctx.ask !== "function")
+      return "ERROR: interactive Q&A is not available in this session";
+    const answers = await ctx.ask({ questions });
+    return (questions as AskQuestion[])
+      .map((q, i) => `Q: ${q.question}\nA: ${answers?.[i]?.answer ?? "(no answer)"}`)
+      .join("\n\n");
+  },
+};
+
 export const TOOLS: ToolDef[] = [
   readFileTool,
   writeFileTool,
@@ -399,6 +463,7 @@ export const TOOLS: ToolDef[] = [
   globTool,
   grepTool,
   bashTool,
+  askUserQuestionTool,
 ];
 
 export const TOOL_BY_NAME: Record<string, ToolDef> = Object.fromEntries(

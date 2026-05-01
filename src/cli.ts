@@ -16,12 +16,12 @@ import {
   type Reporter,
 } from "./agent.js";
 import { listSessions, loadSession, newSessionId, saveSession } from "./session.js";
-import type { Approver, ToolContext } from "./tools.js";
+import type { Approver, Asker, AskRequest, AskAnswer, ToolContext } from "./tools.js";
 import { App, type Mode } from "./app.js";
 import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
-const VERSION = "1.2.2";
+const VERSION = "1.2.3";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {
@@ -244,6 +244,47 @@ function consoleApprover(mode: Mode, rl: readline.Interface): Approver {
   };
 }
 
+function consoleAsker(rl: readline.Interface): Asker {
+  return async (req: AskRequest): Promise<AskAnswer[]> => {
+    const answers: AskAnswer[] = [];
+    console.log(kleur.magenta().bold("\n? ccr needs clarification"));
+    for (let qi = 0; qi < req.questions.length; qi++) {
+      const q = req.questions[qi];
+      console.log(kleur.bold(`\nQ${qi + 1}.`) + " " + q.question);
+      q.options.forEach((opt, i) => console.log(`  ${kleur.cyan(String(i + 1))}) ${opt}`));
+      const otherIdx = q.options.length + 1;
+      console.log(`  ${kleur.cyan(String(otherIdx))}) Other (free text)`);
+      while (true) {
+        const raw: string = await new Promise((res) => rl.question("Choose: ", res));
+        const trimmed = raw.trim();
+        if (!trimmed) {
+          answers.push({ answer: "(no answer)" });
+          break;
+        }
+        if (/^\d+$/.test(trimmed)) {
+          const n = parseInt(trimmed, 10);
+          if (n >= 1 && n <= q.options.length) {
+            answers.push({ answer: q.options[n - 1] });
+            break;
+          }
+          if (n === otherIdx) {
+            const free: string = await new Promise((res) =>
+              rl.question("Your answer: ", res),
+            );
+            answers.push({ answer: free.trim() || "(no answer)" });
+            break;
+          }
+          console.log(kleur.yellow("Out of range."));
+          continue;
+        }
+        answers.push({ answer: trimmed });
+        break;
+      }
+    }
+    return answers;
+  };
+}
+
 function consoleReporter(): Reporter {
   let header = false;
   return {
@@ -326,7 +367,11 @@ async function runOneShot(args: Args, root: string, auth: CcrAuth | null): Promi
   }
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ctx: ToolContext = { root, approve: consoleApprover(args.mode, rl) };
+  const ctx: ToolContext = {
+    root,
+    approve: consoleApprover(args.mode, rl),
+    ask: consoleAsker(rl),
+  };
   const run: AgentRun = { client, model: args.model, ctx, reporter: consoleReporter() };
 
   const initialPrompt = args.prompt.join(" ").trim();
