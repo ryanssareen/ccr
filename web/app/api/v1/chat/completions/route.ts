@@ -48,13 +48,23 @@ function parseChatRequest(raw: RawBody): ChatRequest | string {
     return "messages must be a non-empty array";
   }
   for (const message of raw.messages) {
-    if (
-      !message ||
-      typeof message !== "object" ||
-      typeof (message as { role?: unknown }).role !== "string" ||
-      typeof (message as { content?: unknown }).content !== "string"
-    ) {
-      return "each message must have string role and content";
+    if (!message || typeof message !== "object") {
+      return "each message must be an object";
+    }
+    if (typeof (message as { role?: unknown }).role !== "string") {
+      return "each message must have a string role";
+    }
+    // `content` may legitimately be null on assistant messages that only carry
+    // tool_calls (OpenAI Chat Completions spec). Accept string | null | array
+    // (multimodal). Anything else is invalid.
+    const content = (message as { content?: unknown }).content;
+    const contentValid =
+      content === null ||
+      content === undefined ||
+      typeof content === "string" ||
+      Array.isArray(content);
+    if (!contentValid) {
+      return "each message content must be a string, array, or null";
     }
   }
 
