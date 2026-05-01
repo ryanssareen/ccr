@@ -1,29 +1,64 @@
 # ccr
 
-Clean-room terminal coding assistant backed by Groq. Reads your repo,
-proposes diffs, and runs shell commands with approval.
+Free terminal coding assistant. Reads your repo, proposes diffs, and
+runs shell commands with your approval. No API key required.
 
 ## Install
 
 ```bash
-# from this directory:
-npm install
-npm run build
-npm link        # makes the `ccr` command global
-
-# or install from npm once published:
-# npm install -g ccr-cli
+npm install -g @ryanisavibecoder/ccr
 ```
+
+## Quick Start
+
+```bash
+ccr login                         # sign up — opens your browser
+ccr "explain this codebase"       # one-shot
+ccr                               # interactive REPL
+```
+
+That's it. `ccr login` creates a free account and provisions everything.
+The service routes your requests across multiple LLM providers (Groq,
+Together AI, Cerebras, OpenRouter) so individual users don't need to
+manage API keys.
+
+### Free tier
+
+Every account gets **2,000 requests per month**. Usage is shown inline
+in the REPL header and at the end of every one-shot run. Resets on the
+1st of each month UTC.
+
+## Auth options
+
+```bash
+ccr login                # browser flow (default)
+ccr login --terminal     # email + password directly in the terminal
+ccr login --method github # force GitHub OAuth (browser only)
+```
+
+Credentials are stored at `~/.ccr/auth.json` (mode `0600`).
 
 ## Configure
 
 ```bash
-export GROQ_API_KEY=gsk_...
-# Optional model override:
+# Override the default model:
 export CCR_MODEL=llama-3.3-70b-versatile
+
+# Point at a self-hosted or staging deployment:
+export CCR_ENDPOINT=https://my-ccr.example.com
 ```
 
-A `.env` file in the project root is also auto-loaded.
+## Bring your own key (advanced)
+
+If you'd rather skip the managed service and use Groq directly:
+
+```bash
+export GROQ_API_KEY=gsk_...
+ccr "your prompt"
+```
+
+This bypasses the proxy. You'll get a deprecation warning on each run
+but it still works for offline / power-user setups.
 
 ## Use
 

@@ -1,7 +1,7 @@
 {
-  "name": "ccr-cli",
-  "version": "0.1.0",
-  "description": "Clean-room terminal coding assistant backed by Groq.",
+  "name": "@ryanisavibecoder/ccr",
+  "version": "1.2.3",
+  "description": "Free terminal coding assistant. No API key required — sign up with `ccr login`.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -15,8 +15,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "start": "node dist/cli.js"
   },
   "dependencies": {
     "diff": "^5.2.0",

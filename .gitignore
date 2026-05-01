@@ -1,5 +1,7 @@
 node_modules
-dist
+# dist is normally gitignored, but kept on this branch as a snapshot
+# of published 1.2.3 because the canonical TS source lives elsewhere.
+# See SOURCE_NOTE.md.
 .env
 .env.local
 *.log
