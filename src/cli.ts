@@ -21,7 +21,7 @@ import { App, type Mode } from "./app.js";
 import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
-const VERSION = "0.1.0";
+const VERSION = "1.2.2";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {
@@ -197,7 +197,7 @@ Options:
   --mode MODE              Permission mode: ask | accept-edits | bypass.
   --accept-edits           Auto-approve file edits, ask for shell commands.
   --yolo, --bypass         Auto-approve everything (alias for --mode bypass).
-  --model NAME             Override Groq model (default: ${DEFAULT_MODEL}).
+  --model NAME             Override model (default: ${DEFAULT_MODEL}).
   --cwd DIR                Project root (default: cwd).
   --terminal               Use terminal email/password login flow.
   --no-browser             Alias for --terminal during login.

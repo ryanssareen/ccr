@@ -3,10 +3,11 @@ import { dispatch, toolSchemas, type ToolContext } from "./tools.js";
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const PROXY_API_PATH = "/api/v1";
-// llama-3.1-8b-instant has the highest TPM cap on Groq's free tier (~30k vs 12k
-// for 70b/120b models), so requests that include CLAUDE.md / project context
-// don't immediately blow the rate limit. Switch via /model for stronger models.
-export const DEFAULT_MODEL = process.env.CCR_MODEL || "llama-3.1-8b-instant";
+// llama-3.3-70b-versatile is the default because the 8b-instant model produces
+// noticeably worse code (it'll happily return a shell one-liner when asked for
+// a recursive function). Per-user quotas keep 70b traffic manageable across
+// the multi-provider pool. Override via `/model` or `CCR_MODEL=...`.
+export const DEFAULT_MODEL = process.env.CCR_MODEL || "llama-3.3-70b-versatile";
 
 export interface QuotaState {
   used: number;
