@@ -289,7 +289,7 @@ file (or no lock if idle).
 
 ### Unit 3: Session lock + file watcher in core
 
-- [ ] **Goal:** Add the lock manager and the session file watcher to `@ccr/core`. Wire `runAgent` to acquire on start, release on end. Both front-ends consume the watcher to live-tail non-owned sessions.
+- [x] **Goal:** Add the lock manager and the session file watcher to `@ccr/core`. Wire `runAgent` to acquire on start, release on end. Both front-ends consume the watcher to live-tail non-owned sessions.
 
 **Requirements:** R3, R8, R9.
 

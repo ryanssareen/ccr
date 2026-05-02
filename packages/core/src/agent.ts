@@ -5,6 +5,7 @@ import {
   type ToolContext,
   type SubagentRunOptions,
 } from "./tools.js";
+import { acquireLock, releaseLock, LockOwnedElsewhereError } from "./session-lock.js";
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const PROXY_API_PATH = "/api/v1";
@@ -154,6 +155,15 @@ export interface AgentRun {
   ctx: ToolContext;
   reporter: Reporter;
   signal?: AbortSignal;
+  /**
+   * Optional path to the session JSON this run is operating on. When set,
+   * `runAgent` acquires a lock at `<sessionPath>.lock` for the duration of
+   * the run. When unset, runs without lock arbitration (useful for tests
+   * and one-shot transient runs).
+   */
+  sessionPath?: string;
+  /** Session id, used in the lock record for human-readable diagnostics. */
+  sessionId?: string;
 }
 
 function shortArgs(args: any): string {
@@ -479,6 +489,37 @@ function isFirstTurnGreeting(messages: any[]): boolean {
 }
 
 export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
+  // Acquire the per-session lock for the duration of this run. Skipped when
+  // sessionPath isn't provided (transient / test runs).
+  const lockHeld = run.sessionPath != null;
+  if (lockHeld) {
+    try {
+      await acquireLock(run.sessionPath!, run.sessionId ?? "unknown");
+    } catch (e) {
+      if (e instanceof LockOwnedElsewhereError) {
+        run.reporter.assistantTurnEnd(
+          `Session is active in another window (pid=${e.pid}). Close it or wait, then retry.`,
+        );
+        return;
+      }
+      throw e;
+    }
+  }
+
+  try {
+    await runAgentInner(run, messages);
+  } finally {
+    if (lockHeld) {
+      try {
+        await releaseLock(run.sessionPath!);
+      } catch {
+        // best-effort — don't mask the real error
+      }
+    }
+  }
+}
+
+async function runAgentInner(run: AgentRun, messages: any[]): Promise<void> {
   if (isFirstTurnGreeting(messages)) {
     messages.push({ role: "assistant", content: FIRST_TURN_REPLY });
     run.reporter.assistantTurnEnd(FIRST_TURN_REPLY);

@@ -31,6 +31,13 @@ const EXPECTED_RUNTIME = [
   "loadSession",
   "saveSession",
   "projectId",
+  // session lock + watcher
+  "acquireLock",
+  "releaseLock",
+  "readLock",
+  "lockPath",
+  "LockOwnedElsewhereError",
+  "watchSessions",
   // config / auth
   "loadConfig",
   "saveConfig",
