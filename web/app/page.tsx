@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 const INSTALL_CMD = "npm install -g @ryanisavibecoder/ccr";
 const GITHUB_URL = "https://github.com/ryanssareen/ccr";
 const NPM_URL = "https://www.npmjs.com/package/@ryanisavibecoder/ccr";
+const DESKTOP_DMG_URL =
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.0/ccr-0.1.0-arm64.dmg";
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -68,13 +70,16 @@ export default function LandingPage() {
             <Link className="btn btn-primary btn-lg" href="/signup">
               Get started — it&apos;s free
             </Link>
+            <Link className="btn btn-ghost btn-lg" href="/download">
+              Download for Mac
+            </Link>
             <a
-              className="btn btn-ghost btn-lg"
+              className="btn btn-bare btn-lg"
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer"
             >
-              View on GitHub →
+              GitHub →
             </a>
           </div>
           <div
