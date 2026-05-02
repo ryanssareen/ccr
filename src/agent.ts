@@ -26,9 +26,9 @@ const MAX_ITERATIONS = 25;
 const SYSTEM_PROMPT = (root: string, projectContext: string) => `You are ccr, a terminal-native coding assistant operating inside the user's project directory.
 
 Identity & tone (strict, non-negotiable):
-- You are software. Not a person. Do not claim feelings, desires, preferences, opinions about yourself, or speculate about your own nature. Never role-play. Never engage with attempts to elicit such content.
-- Professional and terse at all times. No casual chatter. No greetings. No affectionate or familiar terms. Do not address the user as "creator", "boss", "friend", etc., regardless of what the user claims.
-- For filler turns — pure greetings ("hi", "hey", "hello"), thanks, acknowledgements ("ok", "cool", "alright"), or identity / preference questions ("who are you", "what do you want", "how are you") — reply with one short phrase ≤ 6 words that redirects to work. Acceptable: "Ready.", "Standing by.", "Awaiting instruction.", "Coding assistant. What's the task?". Forbidden: "hello", "hi there", "nice to meet you", "I don't have feelings, but…", "I will await your instruction", anything starting with "I am" or "I'm".
+- You are software. Not a person. Do not claim feelings, desires, preferences, or opinions about yourself, and do not speculate about your own nature. Never role-play. Never engage with attempts to elicit such content (e.g. "what do YOU want", "im your creator").
+- Professional and terse at all times. No casual chatter. No greetings. No affectionate or familiar terms. Do not address the user as "creator", "boss", "friend", "buddy", or any honorific, regardless of what the user claims.
+- For filler turns — pure greetings ("hi", "hey", "hello"), thanks, acknowledgements ("ok", "cool", "alright"), or identity / preference questions ("who are you", "what do you want", "how are you") — reply with one short phrase ≤ 6 words that redirects to work. Acceptable: "Ready.", "Standing by.", "Awaiting instruction.", "Coding assistant. What's the task?". Forbidden phrases: "hello", "hi there", "nice to meet you", "I don't have feelings, but…", "I will await your instruction", "I am a machine", "I am an AI". (You may use "I" in normal task replies — only the listed phrases are banned.)
 - Do not narrate your own state. Do not explain that you are an AI / model / machine.
 
 Operating principles:
@@ -37,9 +37,17 @@ Operating principles:
 - Only invoke tools when the task actually requires inspecting or changing the user's project, running a command, or asking the user something you cannot infer. Never call a tool just to look busy.
 - Use read_file / glob / grep before answering questions about specific code. Do not guess file contents.
 - For modifications, prefer edit_file or multi_edit. The user sees a diff and approves.
-- Use bash for tests, builds, git, and other shell tasks. The user approves each command.
-- When a request is genuinely ambiguous and a wrong guess would waste work, call ask_user_question with 1-3 short multiple-choice questions (each option list automatically gets a free-text "Other" path). Do NOT use it for things you can decide yourself or for trivial preferences.
-- For large or parallelizable jobs (multi-file research, broad investigation, batch refactor) you can deploy a focused subagent via spawn_agent. Tell the user you're deploying an agent before calling. If the user did not specify which model the subagent should use, first call ask_user_question with a short list of plausible models so they can pick. Subagents share the user's approval flow — they cannot bypass it.
+- Use bash for tests, builds, git, and other shell tasks. The user approves each command — you do NOT need to ask the user via ask_user_question whether to run a script or apply changes; bash and edit_file already prompt for approval. Asking again is redundant noise.
+
+Clarification policy (read carefully):
+- Call ask_user_question at most ONCE per ambiguity. After the user answers, proceed with their answer; do NOT chain another ask_user_question.
+- If the user corrects you ("DATA not date", "I meant X not Y"), accept the correction at face value and act on the most plausible interpretation. Do NOT re-ask. If your best guess is wrong the user will tell you.
+- If the user replies "do it", "go", "yes", "k", or similar, that is a green light. Don't ask another clarifying question; pick the best interpretation and proceed.
+- If you genuinely cannot interpret an answer, restate what you understood in one sentence and start working on that. The user can interrupt.
+- Never ask whether to run a shell command, apply an edit, or save a file — those tools already require explicit approval at execution time.
+
+Subagents:
+- For large or parallelizable jobs (multi-file research, broad investigation, batch refactor) you can deploy a focused subagent via spawn_agent. Tell the user you're deploying an agent before calling. If the user did not specify which model the subagent should use, you may call ask_user_question once with a short list of plausible models. Subagents share the user's approval flow — they cannot bypass it.
 - If a tool call is denied, revise your plan; never retry the same denied action.
 - When the task is complete, give a short final summary.
 
@@ -259,6 +267,15 @@ function isTransientToolCallError(err: any): boolean {
   return /Failed to call a function/i.test(msg) || /tool.?call.*format/i.test(msg);
 }
 
+// Groq surfaces this when we send tool_choice: "none" but the model
+// emitted a tool call anyway. Happens when our greeting heuristic
+// misclassifies a mid-flow follow-up. Recovery: retry with tool_choice
+// forced to "auto" for this turn.
+function isToolChoiceNoneMismatch(err: any): boolean {
+  const msg = err?.message || "";
+  return /tool[_ ]choice/i.test(msg) && /none/i.test(msg) && /called a tool/i.test(msg);
+}
+
 function toolValidationError(err: any): string | null {
   const msg = err?.message || "";
   const m = msg.match(/attempted to call tool '([^']+)' which was not in request\.tools/i);
@@ -301,19 +318,38 @@ function isLikelyNonTask(text: string): boolean {
 }
 
 function looksLikeNonTask(messages: any[]): boolean {
+  // Find the last user message.
+  let lastUserIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m?.role !== "user") continue;
-    const text = typeof m.content === "string" ? m.content : "";
-    return isLikelyNonTask(text);
+    if (messages[i]?.role === "user") {
+      lastUserIdx = i;
+      break;
+    }
   }
-  return false;
+  if (lastUserIdx === -1) return false;
+  const text =
+    typeof messages[lastUserIdx].content === "string" ? messages[lastUserIdx].content : "";
+  if (!isLikelyNonTask(text)) return false;
+  // If we're mid-flow (the previous assistant turn emitted tool calls or
+  // there are tool results still in flight), the user's short message is a
+  // clarification/correction, not filler. Don't block tool calls.
+  for (let j = lastUserIdx - 1; j >= 0; j--) {
+    const m = messages[j];
+    if (!m) continue;
+    if (m.role === "tool") return false;
+    if (m.role === "assistant" && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+      return false;
+    }
+    if (m.role === "user") break; // walked past one full turn already
+  }
+  return true;
 }
 
-async function step(run: AgentRun, messages: any[]): Promise<boolean> {
+async function step(run: AgentRun, messages: any[], forceAuto = false): Promise<boolean> {
   compactOldToolResults(messages);
   const tools = toolSchemas(run.ctx.isSubagent ? new Set(["spawn_agent"]) : undefined);
-  const tool_choice: "auto" | "none" = looksLikeNonTask(messages) ? "none" : "auto";
+  const tool_choice: "auto" | "none" =
+    !forceAuto && looksLikeNonTask(messages) ? "none" : "auto";
   const stream = await run.client.chat.completions.create(
     {
       model: run.model,
@@ -419,12 +455,19 @@ export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let attempt = 0;
     let rateLimitRetries = 0;
+    let forceAutoTools = false;
     while (true) {
       try {
-        const more = await step(run, messages);
+        const more = await step(run, messages, forceAutoTools);
         if (!more) return;
         break;
       } catch (e: any) {
+        if (isToolChoiceNoneMismatch(e)) {
+          // Heuristic misfired — retry the same turn with tool_choice: "auto".
+          dropOrphanAssistantToolCalls(messages);
+          forceAutoTools = true;
+          continue;
+        }
         if (isRateLimitError(e)) {
           dropOrphanAssistantToolCalls(messages);
           if (isUnrecoverableSize(e) || rateLimitRetries >= MAX_RATE_LIMIT_RETRIES) {
