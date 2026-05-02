@@ -7,22 +7,23 @@ import {
   runAgent,
   initialMessages,
   makeSubagentRunner,
+  saveSession,
+  listSessions,
+  newSessionId,
+  VERSION,
+  checkForUpdate,
   type AgentRun,
   type QuotaState,
   type Reporter,
-} from "./agent.js";
-import type {
-  Approver,
-  ApprovalRequest as ToolApprovalRequest,
-  Asker,
-  AskAnswer,
-  AskQuestion,
-  AskRequest,
-  ToolContext,
-} from "./tools.js";
-import { saveSession, listSessions, newSessionId } from "./session.js";
-import { VERSION } from "./version.js";
-import { checkForUpdate, type UpdateInfo } from "./update-check.js";
+  type Approver,
+  type ApprovalRequest as ToolApprovalRequest,
+  type Asker,
+  type AskAnswer,
+  type AskQuestion,
+  type AskRequest,
+  type ToolContext,
+  type UpdateInfo,
+} from "@ccr/core";
 import path from "node:path";
 
 export type Mode = "ask" | "accept-edits" | "bypass";
