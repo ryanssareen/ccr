@@ -450,7 +450,40 @@ function pickFallbackModel(current: string): string {
   );
 }
 
+// Hard-coded greeting short-circuit. If this is the very first turn of the
+// conversation AND the user message is a pure greeting keyword, skip the
+// model call entirely and emit a canned reply. Avoids burning a request on
+// content the model gets wrong half the time.
+const FIRST_TURN_GREETING_RE =
+  /^(?:hi+|hey+y*|hello+|hallo+o*|hola+|ola+|yo+|sup|howdy|hiya|heya|aloha|greetings|gm|gn)[\s.!?,👋]*$/i;
+
+const FIRST_TURN_REPLY = "Hi — what would you like to work on?";
+
+function isFirstTurnGreeting(messages: any[]): boolean {
+  // First-turn means no assistant or tool messages have been emitted yet.
+  for (const m of messages) {
+    if (m?.role === "assistant" || m?.role === "tool") return false;
+  }
+  // Find the (single) user message and test it.
+  let userMsg = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") {
+      userMsg = messages[i];
+      break;
+    }
+  }
+  if (!userMsg) return false;
+  const text = typeof userMsg.content === "string" ? userMsg.content.trim() : "";
+  if (!text || text.length > 30) return false;
+  return FIRST_TURN_GREETING_RE.test(text);
+}
+
 export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
+  if (isFirstTurnGreeting(messages)) {
+    messages.push({ role: "assistant", content: FIRST_TURN_REPLY });
+    run.reporter.assistantTurnEnd(FIRST_TURN_REPLY);
+    return;
+  }
   let fallbackTried = false;
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let attempt = 0;
