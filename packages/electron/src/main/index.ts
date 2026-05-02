@@ -18,9 +18,23 @@ interface PublicFirebaseConfig {
 
 const FIREBASE_FILE = path.join(os.homedir(), ".ccr", "firebase.json");
 
-/** Resolve Firebase web config from CCR_FIREBASE_* env vars, falling back
- * to ~/.ccr/firebase.json. The web config is safe to embed — that's why
- * the website ships it as NEXT_PUBLIC_*. */
+// Public Firebase web config — same values the website ships in its JS
+// bundle as NEXT_PUBLIC_FIREBASE_*. Safe to embed; that's the whole point
+// of the "public" prefix. Lets the packaged DMG sign users in out of the
+// box without requiring a per-machine ~/.ccr/firebase.json.
+const BUNDLED_FIREBASE_CONFIG: PublicFirebaseConfig = {
+  apiKey: "AIzaSyCOVLDvzYv6GkVzYMbjobhH0aso93grVB8",
+  authDomain: "ccr-managed.firebaseapp.com",
+  projectId: "ccr-managed",
+  storageBucket: "ccr-managed.firebasestorage.app",
+  messagingSenderId: "34569369048",
+  appId: "1:34569369048:web:ef3b89c2a6f7c3ff406ead",
+};
+
+/** Resolve Firebase web config: env vars → ~/.ccr/firebase.json → bundled
+ * default. The bundled default mirrors the website's NEXT_PUBLIC_FIREBASE_*
+ * values; env / file overrides exist for development against a different
+ * Firebase project. */
 function resolveFirebaseConfig(): PublicFirebaseConfig {
   const fromEnv: PublicFirebaseConfig = {
     apiKey: process.env.CCR_FIREBASE_API_KEY ?? "",
@@ -36,19 +50,21 @@ function resolveFirebaseConfig(): PublicFirebaseConfig {
   if (existsSync(FIREBASE_FILE)) {
     try {
       const parsed = JSON.parse(readFileSync(FIREBASE_FILE, "utf8")) as Partial<PublicFirebaseConfig>;
-      return {
-        apiKey: parsed.apiKey ?? "",
-        authDomain: parsed.authDomain ?? "",
-        projectId: parsed.projectId ?? "",
-        storageBucket: parsed.storageBucket,
-        messagingSenderId: parsed.messagingSenderId,
-        appId: parsed.appId ?? "",
-      };
+      if (parsed.apiKey && parsed.authDomain && parsed.projectId && parsed.appId) {
+        return {
+          apiKey: parsed.apiKey,
+          authDomain: parsed.authDomain,
+          projectId: parsed.projectId,
+          storageBucket: parsed.storageBucket,
+          messagingSenderId: parsed.messagingSenderId,
+          appId: parsed.appId,
+        };
+      }
     } catch (err) {
       console.error(`[ccr] Failed to read ${FIREBASE_FILE}:`, err);
     }
   }
-  return fromEnv;
+  return BUNDLED_FIREBASE_CONFIG;
 }
 
 let mainWindow: BrowserWindow | null = null;

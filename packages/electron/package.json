@@ -1,6 +1,6 @@
 {
   "name": "@ccr/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CCR Electron desktop dashboard",
   "license": "MIT",
   "private": true,
@@ -49,6 +49,7 @@
       "gatekeeperAssess": false,
       "darkModeSupport": false
     },
+    "afterPack": "scripts/adhoc-sign.cjs",
     "dmg": {
       "title": "ccr ${version}",
       "writeUpdateInfo": false,
