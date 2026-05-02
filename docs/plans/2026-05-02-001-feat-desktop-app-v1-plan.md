@@ -421,7 +421,7 @@ file (or no lock if idle).
 
 ### Unit 5: Renderer dashboard (sessions rail / chat stage / settings panel)
 
-- [ ] **Goal:** Build the three-region dashboard. Left rail = session groups by project, with date sub-grouping; center = chat stage with streamed assistant output, user echoes, tool-call cards, approval and question modals, input bar; bottom-left = settings (model picker, mode toggle, account email, quota line).
+- [x] **Goal:** Build the three-region dashboard. Left rail = session groups by project, with date sub-grouping; center = chat stage with streamed assistant output, user echoes, tool-call cards, approval and question modals, input bar; bottom-left = settings (model picker, mode toggle, account email, quota line).
 
 **Requirements:** R4, R7.
 
@@ -483,7 +483,7 @@ file (or no lock if idle).
 
 ### Unit 6: Cmd-K command bar (cmdk)
 
-- [ ] **Goal:** Add a fuzzy command palette accessible from anywhere via `⌘ K` (mac) / `Ctrl K`. Searchable corpus: open sessions, slash commands, models, modes, "new session in <project>".
+- [x] **Goal:** Add a fuzzy command palette accessible from anywhere via `⌘ K` (mac) / `Ctrl K`. Searchable corpus: open sessions, slash commands, models, modes, "new session in <project>".
 
 **Requirements:** R5.
 
@@ -519,7 +519,7 @@ file (or no lock if idle).
 
 ### Unit 7: Live session-rail updates + lock-aware UI states
 
-- [ ] **Goal:** Wire the file watcher from Unit 3 into the renderer so the sessions rail and the chat stage update live when the *other* front-end (or a different window) writes to the same files. Show "active in another window" badges and an "open here" recovery button when locks are stale.
+- [x] **Goal:** Wire the file watcher from Unit 3 into the renderer so the sessions rail and the chat stage update live when the *other* front-end (or a different window) writes to the same files. Show "active in another window" badges and an "open here" recovery button when locks are stale.
 
 **Requirements:** R3, R8, R9.
 

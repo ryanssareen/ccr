@@ -51,7 +51,12 @@ export {
   loadSession,
   saveSession,
   projectId,
+  sessionsRootDirectory,
+  listSessionsIndex,
+  loadSessionByPath,
 } from "./session.js";
+export type { SessionIndexEntry } from "./session.js";
+export { KNOWN_MODELS } from "./known-models.js";
 
 // ─── session lock + watcher ────────────────────────────────────────────────
 export {

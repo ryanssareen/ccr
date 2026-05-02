@@ -1,4 +1,4 @@
-import type { CcrBridgeApi } from "../shared/ipc.js";
+import type { CcrBridgeApi } from "../common/ipc.js";
 
 declare global {
   interface Window {

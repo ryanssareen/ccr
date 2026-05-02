@@ -35,7 +35,7 @@ import type {
   AgentStartResult,
   MainToRendererChannel,
   MainToRendererPayloads,
-} from "../shared/ipc.js";
+} from "../common/ipc.js";
 
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 const PROJECT_CONTEXT_PER_FILE = 6_000;
@@ -135,12 +135,12 @@ export class AgentHost {
 
   async start(sender: RendererSender, input: AgentStartInput): Promise<AgentStartResult> {
     const sessionId = input.sessionId.trim();
-    if (!sessionId) throw new Error("sessionId is required");
+    if (!sessionId) return { ok: false, error: "sessionId is required" };
     if (this.runs.has(sessionId)) {
-      throw new AgentHostStartError(
-        "ALREADY_RUNNING",
-        `Session '${sessionId}' is already running in this window.`,
-      );
+      return {
+        ok: false,
+        error: `Session '${sessionId}' is already running in this window.`,
+      };
     }
 
     const sessionFilePath = this.deps.sessionPath(this.projectRoot, sessionId);
@@ -149,10 +149,11 @@ export class AgentHost {
       await this.deps.acquireSessionLock(sessionFilePath, sessionId);
     } catch (error) {
       if (isLockOwnedElsewhere(error)) {
-        throw new AgentHostStartError("LOCK_OWNED_ELSEWHERE", error.message, {
-          pid: error.pid,
-          host: error.host,
-        });
+        return {
+          ok: false,
+          error: error.message,
+          lockPid: error.pid,
+        };
       }
       throw error;
     }
@@ -180,6 +181,7 @@ export class AgentHost {
     });
 
     return {
+      ok: true,
       sessionId,
       startedAt: new Date().toISOString(),
     };
