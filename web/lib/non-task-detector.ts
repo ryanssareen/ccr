@@ -94,18 +94,41 @@ export function isLikelyNonTask(text: string): boolean {
 export interface MinimalMessage {
   role?: unknown;
   content?: unknown;
+  tool_calls?: unknown;
 }
 
 /**
- * Walk the message list back-to-front and return true iff the latest user
- * message looks like pure filler.
+ * Returns true iff the latest user message is pure filler AND we aren't
+ * mid-flow. If the previous assistant turn had tool_calls, or there's a
+ * recent tool result in the conversation, the short user reply is a
+ * clarification/correction — not filler — so don't block tool use.
  */
 export function lastUserIsNonTask(messages: readonly MinimalMessage[]): boolean {
+  // Find the last user message.
+  let lastUserIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
-    if (!m || typeof m !== "object") continue;
-    if (m.role !== "user") continue;
-    return isLikelyNonTask(extractText(m.content));
+    if (m && typeof m === "object" && m.role === "user") {
+      lastUserIdx = i;
+      break;
+    }
   }
-  return false;
+  if (lastUserIdx === -1) return false;
+  const text = extractText((messages[lastUserIdx] as MinimalMessage).content);
+  if (!isLikelyNonTask(text)) return false;
+  // Walk back exactly one turn to see if we're mid-flow.
+  for (let j = lastUserIdx - 1; j >= 0; j--) {
+    const m = messages[j];
+    if (!m || typeof m !== "object") continue;
+    if (m.role === "tool") return false;
+    if (
+      m.role === "assistant" &&
+      Array.isArray((m as { tool_calls?: unknown }).tool_calls) &&
+      (m as { tool_calls: unknown[] }).tool_calls.length > 0
+    ) {
+      return false;
+    }
+    if (m.role === "user") break;
+  }
+  return true;
 }

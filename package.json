@@ -1,6 +1,6 @@
 {
   "name": "@ryanisavibecoder/ccr",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Free terminal coding assistant. No API key required — sign up with `ccr login`.",
   "license": "MIT",
   "type": "module",
