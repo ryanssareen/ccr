@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "dev:desktop": "npm run -w @ccr/desktop dev",
+    "build:desktop": "npm run -w @ccr/desktop build",
+    "build": "npm run -w @ccr/core build && npm run -w @ryanisavibecoder/ccr build && npm run -w @ccr/desktop build",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {

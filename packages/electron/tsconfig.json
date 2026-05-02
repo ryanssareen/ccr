@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@ccr/core": ["../core/src/index.ts"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": ["electron.vite.config.ts", "src/**/*"]
+}
