@@ -19,7 +19,7 @@ import {
 import { listSessions, loadSession, newSessionId, saveSession } from "./session.js";
 import type { Approver, Asker, AskRequest, AskAnswer, ToolContext } from "./tools.js";
 import { App, type Mode } from "./app.js";
-import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
+import { applyConfig, authPath, clearAuth, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
 import { VERSION } from "./version.js";
@@ -77,7 +77,7 @@ async function loadProjectContext(root: string): Promise<string> {
 }
 
 interface Args {
-  command: "login" | null;
+  command: "login" | "logout" | null;
   prompt: string[];
   print: boolean;
   resume: string | null | undefined;
@@ -177,8 +177,8 @@ function parseArgs(argv: string[]): Args {
         break;
       }
       default:
-        if (!args.command && a === "login") {
-          args.command = "login";
+        if (!args.command && (a === "login" || a === "logout")) {
+          args.command = a;
           break;
         }
         args.prompt.push(a);
@@ -209,6 +209,7 @@ Options:
 
 Commands:
   login                    Authenticate with CCR.
+  logout                   Sign out and delete the local auth token.
 
 REPL slash commands: /help /clear /model /models /mode /yolo /sessions /save /exit
 `);
@@ -466,6 +467,20 @@ async function runLogin(args: Args): Promise<number> {
   return 1;
 }
 
+async function runLogout(): Promise<number> {
+  const auth = await loadAuth();
+  if (!auth) {
+    console.log(kleur.dim("Not signed in."));
+    return 0;
+  }
+  await clearAuth();
+  const who = auth.email ? ` as ${kleur.bold(auth.email)}` : "";
+  console.log(
+    kleur.green("✓ Logged out") + who + kleur.dim(` (${authPath()} deleted)`),
+  );
+  return 0;
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   if (args.showVersion) {
@@ -481,6 +496,9 @@ async function main(): Promise<number> {
   applyConfig(await loadConfig());
   loadDotEnv(root);
 
+  if (args.command === "logout") {
+    return runLogout();
+  }
   if (args.command === "login") {
     return runLogin(args);
   }
