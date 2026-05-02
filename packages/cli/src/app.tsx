@@ -12,6 +12,10 @@ import {
   newSessionId,
   VERSION,
   checkForUpdate,
+  KNOWN_MODELS,
+  projectId,
+  watchSessions,
+  sessionsRootDirectory,
   type AgentRun,
   type QuotaState,
   type Reporter,
@@ -177,17 +181,6 @@ function WelcomePanel({
     </Box>
   );
 }
-
-const KNOWN_MODELS = [
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "moonshotai/kimi-k2-instruct",
-  "qwen/qwen3-32b",
-  "meta-llama/llama-4-scout-17b-16e-instruct",
-  "meta-llama/llama-4-maverick-17b-128e-instruct",
-];
 
 function formatResetDate(d: Date): string {
   // "May 1" — short, no year (resets are always within ~30 days)
@@ -537,7 +530,21 @@ export function App(props: AppProps) {
   const [status, setStatus] = useState<string | null>(null);
   const [quota, setQuotaState] = useState<QuotaState | null>(null);
   const [recent, setRecent] = useState<{ id: string; label: string }[]>([]);
+  const [diskSessionsBump, setDiskSessionsBump] = useState(0);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    const myHash = projectId(props.root);
+    const watcher = watchSessions(sessionsRootDirectory(), (evt) => {
+      if (evt.type !== "session-changed" && evt.type !== "session-removed") return;
+      const dirHash = path.basename(path.dirname(evt.path));
+      if (dirHash !== myHash) return;
+      setDiskSessionsBump((n) => n + 1);
+    });
+    return () => {
+      void watcher.close();
+    };
+  }, [props.root]);
 
   useEffect(() => {
     let cancelled = false;
@@ -567,7 +574,7 @@ export function App(props: AppProps) {
     return () => {
       cancelled = true;
     };
-  }, [props.root]);
+  }, [props.root, diskSessionsBump]);
 
   const apiMessagesRef = useRef<any[]>(props.initialApiMessages);
   const sessionIdRef = useRef<string>(props.initialSessionId);
