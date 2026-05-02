@@ -8,7 +8,11 @@ function formatResetDate(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-/** Bottom-left footer: managed auth + picker + quota line. */
+/** Bottom-of-sidebar footer. Tight one-column strip:
+ * - Email line (or sign-in hint)
+ * - Quota
+ * - Model dropdown (compact)
+ * - Mode segmented control */
 export function SettingsPanel(props: {
   auth: { email?: string | null } | null;
   model: string;
@@ -30,105 +34,136 @@ export function SettingsPanel(props: {
     !exceeded;
 
   const catalog = KNOWN_MODELS as readonly string[];
-  const selectValue =
-    catalog.includes(props.model) ? props.model : "__custom__";
+  const selectValue = catalog.includes(props.model) ? props.model : "__custom__";
 
   return (
     <div
       style={{
         gridArea: "settings",
-        borderRight: `1px solid ${theme.border}`,
-        borderTop: `1px solid ${theme.border}`,
+        borderTop: `1px solid ${theme.borderDim}`,
+        borderRight: `1px solid ${theme.borderDim}`,
         padding: "10px 12px 12px",
-        background: "#141824",
+        background: "#13161c",
         fontSize: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
       }}
     >
-      <div style={{ color: theme.amberDim, fontWeight: 700, letterSpacing: 0.6, marginBottom: 10 }}>Settings</div>
-      {!props.auth ?
-        <div style={{ color: theme.amber }}>
-          Sign in via <code style={{ color: theme.teal }}>ccr login</code> in your terminal · shared{" "}
-          <code style={{ fontSize: 11 }}>~/.ccr/auth.json</code>
-        </div>
-      : <div style={{ color: theme.textDim, marginBottom: 12 }}>
-          <span>Signed in as </span>
-          <span style={{ color: theme.text }}>{props.auth.email ?? "(anonymous session)"}</span>
-        </div>
-      }
+      {/* identity + quota row */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          color: theme.textDim,
+          fontSize: 11.5,
+        }}
+      >
+        {!props.auth ? (
+          <span style={{ color: theme.amber }}>
+            Run <code style={{ color: theme.teal }}>ccr login</code> in your terminal
+          </span>
+        ) : (
+          <>
+            <span
+              style={{
+                color: theme.text,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              title={props.auth.email ?? ""}
+            >
+              {props.auth.email ?? "(anonymous)"}
+            </span>
+            {props.quota ? (
+              <span style={{ color: exceeded ? theme.red : warn ? theme.amber : theme.textMute, fontSize: 10.5 }}>
+                {props.quota.used.toLocaleString()} / {props.quota.limit.toLocaleString()} ·{" "}
+                {formatResetDate(props.quota.resetAt)}
+                {exceeded ? " · LIMIT" : ""}
+              </span>
+            ) : (
+              <span style={{ color: theme.textMute, fontSize: 10.5 }}>quota loads after first call</span>
+            )}
+          </>
+        )}
+      </div>
 
-      <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ color: theme.textDim }}>Model</span>
-          <select
-            value={selectValue}
-            onChange={(e) => {
-              if (e.target.value !== "__custom__") props.onPickModel(e.target.value);
-            }}
-            style={{
-              background: "#1a1d24",
-              border: `1px solid ${theme.border}`,
-              borderRadius: 6,
-              color: theme.text,
-              padding: 6,
-            }}
-          >
-            {modelsOptions.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-            <option value="__custom__">Other…</option>
-          </select>
+      {/* model */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ color: theme.textMute, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          model
+        </span>
+        <select
+          value={selectValue}
+          onChange={(e) => {
+            if (e.target.value !== "__custom__") props.onPickModel(e.target.value);
+          }}
+          style={{
+            background: "#1a1d24",
+            border: `1px solid ${theme.borderDim}`,
+            borderRadius: 5,
+            color: theme.text,
+            padding: "4px 6px",
+            fontSize: 11,
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          {modelsOptions.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+          <option value="__custom__">Other…</option>
+        </select>
+        {selectValue === "__custom__" && (
           <input
             type="text"
-            placeholder="Other model id (used when selecting Other)"
+            placeholder="Other model id"
             value={props.customModelDraft}
             onChange={(e) => props.onCustomDraft(e.target.value)}
             onBlur={() => props.onPickModel(props.customModelDraft || props.model)}
             style={{
-              padding: "6px 8px",
-              borderRadius: 6,
-              border: `1px solid ${theme.border}`,
+              padding: "4px 6px",
+              borderRadius: 5,
+              border: `1px solid ${theme.borderDim}`,
               background: "#1a1d24",
               color: theme.text,
+              fontSize: 11,
+              fontFamily: "'JetBrains Mono', monospace",
             }}
           />
-        </label>
+        )}
+      </div>
 
-        <div>
-          <div style={{ color: theme.textDim, marginBottom: 4 }}>Mode</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {(["ask", "accept-edits", "bypass"] as DesktopMode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => props.onModePick(m)}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                  border: `1px solid ${props.mode === m ? theme.teal : theme.border}`,
-                  cursor: "pointer",
-                  fontSize: 11,
-                  background: props.mode === m ? "#1f2a34" : "#171a22",
-                  color: props.mode === m ? theme.tealDim : theme.textDim,
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+      {/* mode segmented control */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ color: theme.textMute, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          mode
+        </span>
+        <div style={{ display: "flex", gap: 0, border: `1px solid ${theme.borderDim}`, borderRadius: 5, overflow: "hidden" }}>
+          {(["ask", "accept-edits", "bypass"] as DesktopMode[]).map((m, i) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => props.onModePick(m)}
+              style={{
+                flex: 1,
+                padding: "4px 6px",
+                border: "none",
+                borderLeft: i === 0 ? "none" : `1px solid ${theme.borderDim}`,
+                cursor: "pointer",
+                fontSize: 10.5,
+                background: props.mode === m ? "#1f242e" : "transparent",
+                color: props.mode === m ? theme.teal : theme.textDim,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              {m === "accept-edits" ? "edits" : m}
+            </button>
+          ))}
         </div>
-
-        {!props.auth ? null :
-          !props.quota ?
-            <div style={{ color: theme.textMute }}>Quota refreshes once the backend returns quota headers.</div>
-          : <div style={{ color: exceeded ? theme.red : warn ? theme.amber : theme.textDim }}>
-              quota {props.quota.used.toLocaleString()} / {props.quota.limit.toLocaleString()} · resets{" "}
-              {formatResetDate(props.quota.resetAt)}
-              {exceeded ? " · LIMIT REACHED" : warn ? " · nearing limit" : ""}
-            </div>
-        }
       </div>
     </div>
   );

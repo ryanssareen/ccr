@@ -14,6 +14,7 @@ const row = (id: string, path: string, root = "/p"): ListedSession => ({
   updatedAt: Date.now(),
   messageCount: 0,
   foreignLockPid: null,
+  title: id,
 });
 
 describe("CommandBar (cmdk)", () => {

@@ -96,7 +96,7 @@ export function App() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "260px 1fr",
+        gridTemplateColumns: "240px 1fr",
         gridTemplateRows: "1fr auto",
         gridTemplateAreas: `
           "sessions chat"
@@ -104,9 +104,10 @@ export function App() {
         `,
         height: "100vh",
         width: "100vw",
-        background: theme.borderDim,
+        background: "#101218",
         color: theme.text,
-        fontFamily: '"JetBrains Mono", "SF Mono", monospace',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", system-ui, sans-serif',
       }}
     >
       <SessionRail
@@ -117,38 +118,28 @@ export function App() {
         defaultProjectRoot={defaultProjectRoot}
       />
 
-      <div style={{ gridArea: "chat", overflow: "hidden", borderLeft: `1px solid ${theme.border}` }}>
-        <ChatStage
-          mode={mode}
-          model={model}
-          onQuotaPush={() => {
-            // ChatStage forwards proxy-side quota pushes; we subscribe
-            // globally above, so this is a no-op pass-through.
-          }}
-        />
-      </div>
-
-      <div
-        style={{
-          gridArea: "settings",
-          borderTop: `1px solid ${theme.border}`,
-          borderRight: `1px solid ${theme.border}`,
+      <ChatStage
+        mode={mode}
+        model={model}
+        onQuotaPush={() => {
+          // ChatStage forwards proxy-side quota pushes; we subscribe
+          // globally above, so this is a no-op pass-through.
         }}
-      >
-        <SettingsPanel
-          auth={auth ? { email: auth.email } : null}
-          model={model}
-          mode={mode}
-          quota={quota}
-          customModelDraft={customModelDraft}
-          onPickModel={(m) => {
-            setModel(m);
-            void ccrIpcClient.saveSettings({ model: m });
-          }}
-          onCustomDraft={setCustomModelDraft}
-          onModePick={setMode}
-        />
-      </div>
+      />
+
+      <SettingsPanel
+        auth={auth ? { email: auth.email } : null}
+        model={model}
+        mode={mode}
+        quota={quota}
+        customModelDraft={customModelDraft}
+        onPickModel={(m) => {
+          setModel(m);
+          void ccrIpcClient.saveSettings({ model: m });
+        }}
+        onCustomDraft={setCustomModelDraft}
+        onModePick={setMode}
+      />
 
       <CommandBar
         open={cmdOpen}

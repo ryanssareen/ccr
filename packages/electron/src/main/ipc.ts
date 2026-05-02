@@ -7,6 +7,7 @@
 //     io, lock takeover, settings) — no fs/process logic inline.
 //   - Session-watcher events are broadcast from registerSessionWatcher() so
 //     every open BrowserWindow receives them.
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -88,12 +89,38 @@ async function readForeignLockPid(sessionPathAbs: string): Promise<number | null
   return isPidAlive(lock.pid) ? lock.pid : null;
 }
 
+/**
+ * Pull a friendly title out of a session JSON: the first user message
+ * trimmed and truncated. Falls back to the sessionId for empty sessions.
+ */
+async function deriveTitle(sessionPathAbs: string, sessionId: string): Promise<string> {
+  try {
+    const text = await fs.readFile(sessionPathAbs, "utf8");
+    const data = JSON.parse(text) as { messages?: unknown[] };
+    if (Array.isArray(data.messages)) {
+      for (const m of data.messages) {
+        const row = m as { role?: unknown; content?: unknown };
+        if (row.role !== "user") continue;
+        const c = row.content;
+        const raw = typeof c === "string" ? c : "";
+        const cleaned = raw.replace(/\s+/g, " ").trim();
+        if (!cleaned) continue;
+        return cleaned.length > 60 ? cleaned.slice(0, 57) + "…" : cleaned;
+      }
+    }
+  } catch {
+    // ignore — fall through
+  }
+  return sessionId;
+}
+
 async function buildSessionsList(): Promise<SessionsListResult> {
   const entries = await listSessionsIndex();
   const sessions: ListedSession[] = await Promise.all(
     entries.map(async (entry) => ({
       ...entry,
       foreignLockPid: await readForeignLockPid(entry.sessionPath),
+      title: await deriveTitle(entry.sessionPath, entry.sessionId),
     })),
   );
   return { sessions };

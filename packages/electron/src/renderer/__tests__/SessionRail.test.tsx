@@ -12,6 +12,7 @@ function mockSession(opts: Partial<ListedSession> & Pick<ListedSession, "session
     updatedAt: Date.now(),
     messageCount: 0,
     foreignLockPid: null,
+    title: opts.sessionId,
     ...opts,
   };
 }

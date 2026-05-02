@@ -39,6 +39,11 @@ export function ChatStage(props: {
   const sessionPath = useSessionStore((s) => s.activeSessionPath);
   const projectRoot = useSessionStore((s) => s.activeProjectRoot);
   const foreignPid = useSessionStore((s) => s.foreignLockPid);
+  const indexed = useSessionStore((s) => s.indexed);
+  const activeListed = sessionPath
+    ? indexed.find((s) => s.sessionPath === sessionPath)
+    : undefined;
+  const headerTitle = activeListed?.title ?? sessionId ?? null;
 
   const entries = useRunStore((s) => s.entries);
   const streamingTail = useRunStore((s) => s.streamingTail);
@@ -214,29 +219,103 @@ export function ChatStage(props: {
           </button>
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {/* Breadcrumb header — Claude-Code style */}
         <div
           style={{
-            padding: "4px 12px",
-            minHeight: 28,
+            padding: "10px 18px",
             display: "flex",
             alignItems: "center",
-            fontSize: 11,
-            color: themeVals.textMute,
+            gap: 10,
             borderBottom: `1px solid ${themeVals.borderDim}`,
+            flexShrink: 0,
+            minHeight: 44,
           }}
         >
-          <span>{sessionId ?? "(no session)"}</span>
+          {sessionId ? (
+            <>
+              <span style={{ color: themeVals.textMute, fontSize: 12 }}>
+                ⏵
+              </span>
+              <span
+                style={{
+                  color: themeVals.text,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "calc(100% - 200px)",
+                }}
+                title={sessionId}
+              >
+                {headerTitle}
+              </span>
+            </>
+          ) : (
+            <span style={{ color: themeVals.textMute, fontSize: 13 }}>
+              No session selected — pick one on the left or start a new one.
+            </span>
+          )}
           {readOnlyForeign && (
-            <span style={{ marginLeft: "auto", color: themeVals.amber }}>Locked · PID {foreignPid}</span>
+            <span style={{ marginLeft: "auto", color: themeVals.amber, fontSize: 11 }}>
+              Locked · PID {foreignPid}
+            </span>
           )}
           {running && !readOnlyForeign && (
-            <span style={{ marginLeft: "auto", color: themeVals.teal }}>
+            <span style={{ marginLeft: "auto", color: themeVals.teal, fontSize: 11 }}>
               Streaming…
             </span>
           )}
         </div>
-        <div ref={parentRef} style={{ height: "calc(100% - 28px)", overflow: "auto", padding: "8px 10px 12px" }}>
+
+        {/* Empty state when no messages yet */}
+        {entries.length === 0 && streamingTail.length === 0 && sessionId && (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              padding: 32,
+              color: themeVals.textMute,
+            }}
+          >
+            <pre
+              style={{
+                color: themeVals.teal,
+                fontSize: 14,
+                lineHeight: 1.15,
+                margin: 0,
+                whiteSpace: "pre",
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >{`  /\\_/\\
+ ( o.o )
+  > ^ <
+ /     \\
+(__|_|__)`}</pre>
+            <div style={{ fontSize: 13, color: themeVals.text }}>
+              Ready when you are.
+            </div>
+            <div style={{ fontSize: 12, color: themeVals.textMute, textAlign: "center", maxWidth: 340 }}>
+              Type a request below — read code, run shell commands, edit files.
+              ccr will ask before doing anything destructive.
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={parentRef}
+          style={{
+            flex: entries.length === 0 && streamingTail.length === 0 && sessionId ? 0 : 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: "16px 22px 18px",
+          }}
+        >
           <div
             style={{
               height: virtualizer.getTotalSize(),
@@ -283,38 +362,95 @@ export function ChatStage(props: {
         </div>
       </div>
 
-      <div style={{ flexShrink: 0, padding: 10, borderTop: `1px solid ${themeVals.border}`, background: "#141824" }}>
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "12px 22px 18px",
+          background: "#101218",
+        }}
+      >
         {readOnlyForeign && (
-          <div style={{ marginBottom: 8, fontSize: 12, color: themeVals.amber }}>
+          <div style={{ marginBottom: 10, fontSize: 12, color: themeVals.amber }}>
             Live tail only — edits disabled while PID {foreignPid} holds the lock.{" "}
-            <button type="button" style={{ cursor: "pointer", color: themeVals.teal }} onClick={() => void takeoverLock()}>
+            <button
+              type="button"
+              style={{
+                cursor: "pointer",
+                color: themeVals.teal,
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                fontSize: 12,
+                textDecoration: "underline",
+              }}
+              onClick={() => void takeoverLock()}
+            >
               Open here…
             </button>
           </div>
         )}
-        <textarea
-          disabled={readOnlyForeign || running}
-          value={input}
-          rows={5}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (((e.ctrlKey || e.metaKey) && e.key === "Enter") || (!e.shiftKey && e.key === "Enter" && input.trim())) {
-              if (!e.ctrlKey && !e.metaKey && e.key === "Enter") e.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder={readOnlyForeign ? "Subscribe-only mirror" : "Message ccr — Enter sends"}
+        <div
           style={{
-            width: "100%",
-            background: "#151821",
-            color: themeVals.text,
-            borderRadius: 6,
-            padding: 8,
             border: `1px solid ${themeVals.border}`,
-            fontFamily: "'JetBrains Mono', monospace",
-            resize: "vertical",
+            borderRadius: 10,
+            background: "#161922",
+            padding: "10px 12px",
+            transition: "border-color 0.12s",
           }}
-        />
+          onFocusCapture={(e) =>
+            ((e.currentTarget as HTMLDivElement).style.borderColor = themeVals.tealDim)
+          }
+          onBlurCapture={(e) =>
+            ((e.currentTarget as HTMLDivElement).style.borderColor = themeVals.border)
+          }
+        >
+          <textarea
+            disabled={readOnlyForeign || running}
+            value={input}
+            rows={3}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                ((e.ctrlKey || e.metaKey) && e.key === "Enter") ||
+                (!e.shiftKey && e.key === "Enter" && input.trim())
+              ) {
+                if (!e.ctrlKey && !e.metaKey && e.key === "Enter") e.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder={
+              readOnlyForeign
+                ? "Subscribe-only mirror"
+                : sessionId
+                  ? "Message ccr…"
+                  : "Pick a session on the left, or click + New session"
+            }
+            style={{
+              width: "100%",
+              background: "transparent",
+              color: themeVals.text,
+              border: "none",
+              outline: "none",
+              fontFamily: "inherit",
+              fontSize: 14,
+              resize: "none",
+              lineHeight: 1.5,
+            }}
+          />
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 10.5,
+              color: themeVals.textMute,
+              display: "flex",
+              gap: 12,
+            }}
+          >
+            <span>Enter to send</span>
+            <span>Shift+Enter newline</span>
+            <span>⌘K command bar</span>
+          </div>
+        </div>
       </div>
 
       {approval && (

@@ -152,6 +152,11 @@ export interface AgentErrorPayload {
 export interface ListedSession extends SessionIndexEntry {
   /** Live owner pid of <session>.lock when held by another process. null when free. */
   foreignLockPid: number | null;
+  /**
+   * Human-friendly session title derived from the first user message,
+   * truncated. Falls back to the sessionId for empty / new sessions.
+   */
+  title: string;
 }
 
 export interface SessionsListResult {
