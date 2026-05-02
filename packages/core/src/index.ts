@@ -53,6 +53,18 @@ export {
   projectId,
 } from "./session.js";
 
+// ─── session lock + watcher ────────────────────────────────────────────────
+export {
+  acquireLock,
+  releaseLock,
+  readLock,
+  lockPath,
+  LockOwnedElsewhereError,
+} from "./session-lock.js";
+export type { LockFile, AcquireOptions, ReleaseOptions } from "./session-lock.js";
+export { watchSessions } from "./session-watcher.js";
+export type { SessionEvent, SessionWatcher } from "./session-watcher.js";
+
 // ─── config / auth ──────────────────────────────────────────────────────────
 export {
   loadConfig,
