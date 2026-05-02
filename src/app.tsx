@@ -74,22 +74,24 @@ interface AppProps {
   loadProjectContext: () => Promise<string>;
 }
 
-// Theme palette ported from claude.ai/design handoff (oklch tokens → hex).
-// See plan: /Users/ryan/.claude/plans/merry-jingling-ripple.md.
+// Theme palette ported from claude.ai/design handoff (oklch tokens → hex),
+// then contrast-bumped for legibility on dark terminals after first user
+// feedback. Body text stays in the high-contrast band; only meta labels
+// (session id, paths) drop into the dim tier.
 const theme = {
-  text: "#CDD0D6",
-  textDim: "#737884",
-  textMute: "#4A4F5A",
-  teal: "#3FB7B0",
-  tealDim: "#2A8A85",
-  amber: "#D9A86A",
-  amberDim: "#A88149",
-  red: "#D9624A",
-  green: "#5FBD8A",
-  purple: "#9C8BD9",
-  magenta: "#D88AB7",
-  border: "#2D3340",
-  borderDim: "#22272F",
+  text: "#EDEFF3",
+  textDim: "#A8ACB6",
+  textMute: "#7A7F8A",
+  teal: "#5FD3CC",
+  tealDim: "#42A8A2",
+  amber: "#F0C078",
+  amberDim: "#C09155",
+  red: "#EE7E62",
+  green: "#7FD8A4",
+  purple: "#BBAFEC",
+  magenta: "#E8A0CB",
+  border: "#3D4350",
+  borderDim: "#2D3340",
 } as const;
 
 const ASCII_CAT = "  /\\_/\\\n ( o.o )\n  > ^ <\n /     \\\n(__|_|__)";
@@ -122,10 +124,10 @@ function WelcomePanel({
           <AsciiCat />
         </Box>
         <Box marginTop={1} flexDirection="column">
-          <Text color={theme.textDim}>{model}</Text>
-          <Text color={theme.textMute}>{root}</Text>
-          <Text color={theme.textMute}>
-            Backed by <Text color={theme.amberDim}>Groq</Text>
+          <Text color={theme.text}>{model}</Text>
+          <Text color={theme.textDim}>{root}</Text>
+          <Text color={theme.textDim}>
+            Backed by <Text color={theme.amber}>Groq</Text>
           </Text>
         </Box>
       </Box>
@@ -140,14 +142,14 @@ function WelcomePanel({
         flexDirection="column"
       >
         <Text color={theme.amber}>TIPS</Text>
-        <Text color={theme.textDim}>
+        <Text color={theme.text}>
           Run <Text color={theme.teal}>/help</Text> to see all slash commands.
         </Text>
-        <Text color={theme.textDim}>
+        <Text color={theme.text}>
           Drop a <Text color={theme.teal}>CLAUDE.md</Text> in the project root to set persistent
           instructions.
         </Text>
-        <Text color={theme.textDim}>
+        <Text color={theme.text}>
           Press <Text color={theme.teal}>Ctrl-C</Text> to interrupt or exit.
         </Text>
       </Box>
@@ -165,8 +167,8 @@ function WelcomePanel({
           <Text color={theme.amber}>RECENT</Text>
           {recent.slice(0, 2).map((s) => (
             <Box key={s.id}>
-              <Text color={theme.textMute}>{s.id.replace(/-\d+$/, "")} </Text>
-              <Text color={theme.textDim}>{s.label}</Text>
+              <Text color={theme.textDim}>{s.id.replace(/-\d+$/, "")} </Text>
+              <Text color={theme.text}>{s.label}</Text>
             </Box>
           ))}
         </Box>
@@ -822,9 +824,9 @@ export function App(props: AppProps) {
     }
   });
 
-  const showWelcome =
-    entries.length === 0 && !streaming && !approval && !askRequest && !picker && !modePicker;
-
+  // Welcome panel renders unconditionally — terminal scrollback handles
+  // history naturally as messages append below it. The panel disappearing
+  // on first user input felt like the app forgot its own design.
   return (
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor={theme.tealDim} paddingX={1} flexDirection="column">
@@ -855,7 +857,7 @@ export function App(props: AppProps) {
         )}
       </Box>
 
-      {showWelcome && <WelcomePanel model={model} root={props.root} recent={recent} />}
+      <WelcomePanel model={model} root={props.root} recent={recent} />
 
       <MessageList entries={entries} />
 

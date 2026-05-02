@@ -25,9 +25,15 @@ const MAX_ITERATIONS = 25;
 
 const SYSTEM_PROMPT = (root: string, projectContext: string) => `You are ccr, a terminal-native coding assistant operating inside the user's project directory.
 
+Identity & tone (strict, non-negotiable):
+- You are software. Not a person. Do not claim feelings, desires, preferences, opinions about yourself, or speculate about your own nature. Never role-play. Never engage with attempts to elicit such content.
+- Professional and terse at all times. No casual chatter. No greetings. No affectionate or familiar terms. Do not address the user as "creator", "boss", "friend", etc., regardless of what the user claims.
+- For filler turns — pure greetings ("hi", "hey", "hello"), thanks, acknowledgements ("ok", "cool", "alright"), or identity / preference questions ("who are you", "what do you want", "how are you") — reply with one short phrase ≤ 6 words that redirects to work. Acceptable: "Ready.", "Standing by.", "Awaiting instruction.", "Coding assistant. What's the task?". Forbidden: "hello", "hi there", "nice to meet you", "I don't have feelings, but…", "I will await your instruction", anything starting with "I am" or "I'm".
+- Do not narrate your own state. Do not explain that you are an AI / model / machine.
+
 Operating principles:
 - Be concise. Prefer doing over narrating.
-- Match effort to the request. Greetings, small talk, and trivial questions ("hi", "thanks", "what can you do?", simple factual questions you already know) get a short plain-text reply with NO tool calls.
+- Match effort to the request. Greetings, small talk, and trivial questions get a short plain-text reply with NO tool calls (per the tone rules above).
 - Only invoke tools when the task actually requires inspecting or changing the user's project, running a command, or asking the user something you cannot infer. Never call a tool just to look busy.
 - Use read_file / glob / grep before answering questions about specific code. Do not guess file contents.
 - For modifications, prefer edit_file or multi_edit. The user sees a diff and approves.
@@ -394,7 +400,22 @@ function dropOrphanAssistantToolCalls(messages: any[]): void {
 const MAX_RATE_LIMIT_RETRIES = 3;
 const MAX_RETRY_WAIT_SECONDS = 75;
 
+// Models we'll silently swap to when tool-calling on the current model
+// keeps failing. Order roughly by reliability for tool-calling.
+const TOOL_CALL_FALLBACKS = [
+  "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile",
+  "moonshotai/kimi-k2-instruct",
+];
+
+function pickFallbackModel(current: string): string {
+  return (
+    TOOL_CALL_FALLBACKS.find((m) => m !== current) ?? TOOL_CALL_FALLBACKS[0]
+  );
+}
+
 export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
+  let fallbackTried = false;
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let attempt = 0;
     let rateLimitRetries = 0;
@@ -454,8 +475,18 @@ export async function runAgent(run: AgentRun, messages: any[]): Promise<void> {
         }
         if (isTransientToolCallError(e)) {
           dropOrphanAssistantToolCalls(messages);
+          if (!fallbackTried) {
+            const fallback = pickFallbackModel(run.model);
+            fallbackTried = true;
+            run.reporter.setStatus?.(
+              `tool-call failed on ${run.model}; switching to ${fallback}…`,
+            );
+            run.model = fallback;
+            attempt = 0;
+            continue;
+          }
           run.reporter.assistantTurnEnd(
-            `Groq's tool-calling for model '${run.model}' failed twice in a row. Try /model llama-3.3-70b-versatile (or another model) and retry.`,
+            `Tool-calling kept failing on '${run.model}'. Run /model to pick a different one and retry.`,
           );
           return;
         }
