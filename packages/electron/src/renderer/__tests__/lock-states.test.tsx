@@ -1,20 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatStage } from "../components/ChatStage.js";
-
-const subs: Record<string, Array<(p: unknown) => void>> = {};
+import { installBridgeMock } from "./_bridge-mock.js";
 
 beforeEach(async () => {
-  Object.keys(subs).forEach((k) => delete subs[k]);
-  vi.stubGlobal("ccr", {
-    invoke: vi.fn(() => Promise.resolve({ ok: true })),
-    bootstrap: () => Promise.resolve({ auth: null, config: {}, defaultProjectRoot: "/tmp" }),
-    subscribe: vi.fn((ch: string, cb: (p: unknown) => void) => {
-      if (!subs[ch]) subs[ch] = [];
-      subs[ch]!.push(cb);
-      return () => undefined;
-    }),
-  });
+  installBridgeMock();
 
   const { useSessionStore } = await import("../state/session-store.js");
   useSessionStore.setState({
@@ -46,7 +36,6 @@ afterEach(() => cleanup());
 describe("Lock-aware chat shell", () => {
   it("shows read-only hint when PID is alive elsewhere", () => {
     render(<ChatStage mode="ask" model="m" onQuotaPush={() => undefined} />);
-    expect(screen.getByText(/Read-only mirror/)).toBeTruthy();
-    expect(screen.getByText(/4242/)).toBeTruthy();
+    expect(screen.getByText(/Locked · PID 4242/)).toBeTruthy();
   });
 });

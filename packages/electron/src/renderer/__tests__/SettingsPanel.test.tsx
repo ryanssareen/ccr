@@ -7,7 +7,7 @@ afterEach(() => cleanup());
 
 describe("SettingsPanel", () => {
   it("persists model picks through onPickModel", async () => {
-    const onPick = vi.fn(async () => undefined);
+    const onPick = vi.fn<(model: string) => Promise<void>>(async () => undefined);
     render(
       <SettingsPanel
         auth={{ email: "u@ccr.test" }}

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { QuotaState } from "@ccr/core";
-import { KNOWN_MODELS } from "@ccr/core";
+import { KNOWN_MODELS } from "../known-models.js";
 import { theme } from "../theme.js";
 import type { DesktopMode } from "../theme.js";
 

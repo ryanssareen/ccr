@@ -20,24 +20,25 @@ afterEach(() => cleanup());
 
 describe("SessionRail", () => {
   it("groups two projects sorted by newest project activity", async () => {
+    const now = Date.now();
     const indexed: ListedSession[] = [
       mockSession({
         sessionPath: "/s/p1/old.json",
         sessionId: "old",
         projectRoot: "/tmp/a",
-        updatedAt: 1,
+        updatedAt: now - 1000,
       }),
       mockSession({
-        sessionPath: "/s/p1/new.json",
+        sessionPath: "/s/p1/new-a.json",
         sessionId: "new-a",
         projectRoot: "/tmp/a",
-        updatedAt: 999,
+        updatedAt: now,
       }),
       mockSession({
         sessionPath: "/s/p2/x.json",
         sessionId: "b-only",
         projectRoot: "/tmp/b",
-        updatedAt: 500,
+        updatedAt: now - 500,
       }),
     ];
     const onSelect = vi.fn();

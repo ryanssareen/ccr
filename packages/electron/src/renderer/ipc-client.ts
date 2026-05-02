@@ -1,5 +1,7 @@
+// Renderer-side typed wrapper over `window.ccr` (the contextBridge surface).
+// All renderer code routes through this — no direct window.ccr access in
+// components/state, no string channel names in callers.
 import type {
-  AgentAbortInput,
   AgentApprovalRequestPayload,
   AgentApprovalResponseInput,
   AgentAskRequestPayload,
@@ -14,64 +16,114 @@ import type {
   AgentTokenPayload,
   AgentToolEndPayload,
   AgentToolStartPayload,
+  BootstrapPayload,
   CcrBridgeApi,
   Listener,
+  ListedSession,
+  SessionEvent,
+  SessionsCreateInput,
+  SessionsCreateResult,
+  SessionsListResult,
+  SessionsLoadResult,
+  SessionsTakeoverLockResult,
+  SettingsSaveInput,
   Unsubscribe,
-} from "../shared/ipc.js";
+} from "../common/ipc.js";
 
-function resolveBridge(explicit?: CcrBridgeApi): CcrBridgeApi {
-  if (explicit) return explicit;
-  if (!window.ccr) {
-    throw new Error("CCR bridge was not found on window. Check the preload script.");
+function bridge(): CcrBridgeApi {
+  if (typeof window === "undefined" || !window.ccr) {
+    throw new Error(
+      "CCR bridge was not found on window. Either preload script failed to load, or this code is running outside Electron's renderer.",
+    );
   }
   return window.ccr;
 }
 
-export function createIpcClient(explicitBridge?: CcrBridgeApi) {
-  return {
-    start(input: AgentStartInput): Promise<AgentStartResult> {
-      return resolveBridge(explicitBridge).startAgent(input);
-    },
-    abort(input: AgentAbortInput): Promise<void> {
-      return resolveBridge(explicitBridge).abortAgent(input);
-    },
-    respondToApproval(input: AgentApprovalResponseInput): Promise<void> {
-      return resolveBridge(explicitBridge).respondToApproval(input);
-    },
-    respondToAsk(input: AgentAskResponseInput): Promise<void> {
-      return resolveBridge(explicitBridge).respondToAsk(input);
-    },
-    onToken(listener: Listener<AgentTokenPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onAgentToken(listener);
-    },
-    onAssistantTurnEnd(listener: Listener<AgentAssistantTurnEndPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onAssistantTurnEnd(listener);
-    },
-    onToolStart(listener: Listener<AgentToolStartPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onToolStart(listener);
-    },
-    onToolEnd(listener: Listener<AgentToolEndPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onToolEnd(listener);
-    },
-    onApprovalRequest(listener: Listener<AgentApprovalRequestPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onApprovalRequest(listener);
-    },
-    onAskRequest(listener: Listener<AgentAskRequestPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onAskRequest(listener);
-    },
-    onDone(listener: Listener<AgentDonePayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onDone(listener);
-    },
-    onStatus(listener: Listener<AgentStatusPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onStatus(listener);
-    },
-    onQuota(listener: Listener<AgentQuotaPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onQuota(listener);
-    },
-    onError(listener: Listener<AgentErrorPayload>): Unsubscribe {
-      return resolveBridge(explicitBridge).onError(listener);
-    },
-  };
-}
+/**
+ * Canonical client used by components and state. Methods are grouped by
+ * area: bootstrap → agent → sessions → settings → subscribe* push streams.
+ * Subscriptions return an Unsubscribe function.
+ */
+export const ccrIpcClient = {
+  // bootstrap
+  bootstrap: (): Promise<BootstrapPayload> => bridge().bootstrap(),
 
-export const ipcClient = createIpcClient();
+  // agent control
+  startAgent: (input: AgentStartInput): Promise<AgentStartResult> =>
+    bridge().startAgent(input),
+  abortAgent: (sessionId: string): Promise<void> =>
+    bridge().abortAgent({ sessionId }),
+  approvalResponse: (requestId: string, approved: boolean): Promise<void> =>
+    bridge().respondToApproval({ requestId, approved }),
+  askResponse: (
+    requestId: string,
+    answers: AgentAskResponseInput["answers"],
+  ): Promise<void> => bridge().respondToAsk({ requestId, answers }),
+
+  // sessions
+  listSessions: (): Promise<SessionsListResult> => bridge().listSessions(),
+  loadSession: (sessionPath: string): Promise<SessionsLoadResult> =>
+    bridge().loadSession(sessionPath),
+  createSession: (input: SessionsCreateInput): Promise<SessionsCreateResult> =>
+    bridge().createSession(input),
+  takeoverLock: (
+    sessionPath: string,
+    _sessionIdHint?: string,
+  ): Promise<SessionsTakeoverLockResult> => bridge().takeoverLock(sessionPath),
+
+  // settings
+  saveSettings: (input: SettingsSaveInput): Promise<void> =>
+    bridge().saveSettings(input),
+
+  // push streams
+  subscribeAgentTokens: (listener: Listener<AgentTokenPayload>): Unsubscribe =>
+    bridge().onAgentToken(listener),
+  subscribeAgentAssistantEnd: (
+    listener: Listener<AgentAssistantTurnEndPayload>,
+  ): Unsubscribe => bridge().onAssistantTurnEnd(listener),
+  subscribeToolStart: (listener: Listener<AgentToolStartPayload>): Unsubscribe =>
+    bridge().onToolStart(listener),
+  subscribeToolEnd: (listener: Listener<AgentToolEndPayload>): Unsubscribe =>
+    bridge().onToolEnd(listener),
+  subscribeApprovalRequest: (
+    listener: Listener<AgentApprovalRequestPayload>,
+  ): Unsubscribe => bridge().onApprovalRequest(listener),
+  subscribeAskRequest: (
+    listener: Listener<AgentAskRequestPayload>,
+  ): Unsubscribe => bridge().onAskRequest(listener),
+  subscribeAgentDone: (listener: Listener<AgentDonePayload>): Unsubscribe =>
+    bridge().onDone(listener),
+  subscribeAgentStatus: (listener: Listener<AgentStatusPayload>): Unsubscribe =>
+    bridge().onStatus(listener),
+  subscribeAgentQuota: (listener: Listener<AgentQuotaPayload>): Unsubscribe =>
+    bridge().onQuota(listener),
+  subscribeAgentError: (listener: Listener<AgentErrorPayload>): Unsubscribe =>
+    bridge().onError(listener),
+  subscribeSessionEvent: (listener: Listener<SessionEvent>): Unsubscribe =>
+    bridge().onSessionEvent(listener),
+};
+
+/**
+ * Legacy alias — older code uses `ipcClient` with renamed methods. Kept
+ * for the original App.tsx; new code uses ccrIpcClient.
+ */
+export const ipcClient = {
+  start: ccrIpcClient.startAgent,
+  abort: (input: { sessionId: string }) => ccrIpcClient.abortAgent(input.sessionId),
+  respondToApproval: (input: AgentApprovalResponseInput) =>
+    ccrIpcClient.approvalResponse(input.requestId, input.approved),
+  respondToAsk: (input: AgentAskResponseInput) =>
+    ccrIpcClient.askResponse(input.requestId, input.answers),
+  onToken: ccrIpcClient.subscribeAgentTokens,
+  onAssistantTurnEnd: ccrIpcClient.subscribeAgentAssistantEnd,
+  onToolStart: ccrIpcClient.subscribeToolStart,
+  onToolEnd: ccrIpcClient.subscribeToolEnd,
+  onApprovalRequest: ccrIpcClient.subscribeApprovalRequest,
+  onAskRequest: ccrIpcClient.subscribeAskRequest,
+  onDone: ccrIpcClient.subscribeAgentDone,
+  onStatus: ccrIpcClient.subscribeAgentStatus,
+  onQuota: ccrIpcClient.subscribeAgentQuota,
+  onError: ccrIpcClient.subscribeAgentError,
+};
+
+export type { ListedSession };

@@ -37,7 +37,7 @@ export default defineConfig({
       outDir: path.resolve(rootDir, "dist/preload"),
       rollupOptions: {
         input: {
-          index: path.resolve(rootDir, "src/main/preload.ts"),
+          index: path.resolve(rootDir, "src/preload/index.ts"),
         },
       },
     },

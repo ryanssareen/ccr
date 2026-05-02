@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Command } from "cmdk";
-import { KNOWN_MODELS } from "@ccr/core";
+import { KNOWN_MODELS } from "../known-models.js";
 import type { ListedSession } from "../ipc-client.js";
 import type { DesktopMode } from "../theme.js";
 import { theme } from "../theme.js";
@@ -92,11 +92,8 @@ export function CommandBar(props: CommandBarProps) {
             background: "#171a22",
             color: theme.text,
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-            }
-          }}
+          /* cmdk handles Enter natively (selects the active item). Don't
+             swallow keydowns here. */
         />
         <Command.List style={{ maxHeight: 320, overflow: "auto" }}>
           <Command.Empty style={{ padding: "10px 12px", color: theme.textMute }}>(no matching commands)</Command.Empty>
