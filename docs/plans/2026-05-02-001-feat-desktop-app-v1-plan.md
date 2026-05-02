@@ -257,7 +257,7 @@ file (or no lock if idle).
 
 ### Unit 2: Define and lock the core's public API
 
-- [ ] **Goal:** Make `@ccr/core`'s exported surface explicit and complete enough for the Electron app to consume without reaching into private modules. No behavior change.
+- [x] **Goal:** Make `@ccr/core`'s exported surface explicit and complete enough for the Electron app to consume without reaching into private modules. No behavior change.
 
 **Requirements:** R1, R6, R7.
 
