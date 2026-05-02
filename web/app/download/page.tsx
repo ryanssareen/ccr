@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 const DMG_URL =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.0/ccr-0.1.0-arm64.dmg";
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.1/ccr-0.1.1-arm64.dmg";
 const RELEASE_URL =
-  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.0";
-const VERSION = "0.1.0 (preview)";
+  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.1";
+const VERSION = "0.1.1";
 
 export const metadata = {
   title: "Download ccr for Mac",
