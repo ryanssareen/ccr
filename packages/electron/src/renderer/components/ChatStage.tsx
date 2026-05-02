@@ -120,9 +120,23 @@ export function ChatStage(props: {
   async function submit() {
     const text = input.trim();
     const sid = sessionId;
-    const pr = projectRoot;
+    // Fall back to bootstrap default when the session JSON predates the
+    // projectRoot field (older CLI-written sessions).
+    const pr = projectRoot ?? useSessionStore.getState().bootstrapDefaultProjectRoot;
     const sp = sessionPath;
-    if (!text || readOnlyForeign || !sid || !pr || !sp || running) return;
+    if (!text) return;
+    if (readOnlyForeign) {
+      useRunStore.getState().sysLine("Read-only — another window holds the lock.", "warn");
+      return;
+    }
+    if (!sid || !pr || !sp) {
+      useRunStore.getState().sysLine(
+        "Pick or create a session before sending. (No active session selected.)",
+        "warn",
+      );
+      return;
+    }
+    if (running) return;
     setRunning(true);
     setInput("");
     useRunStore.getState().pushUserEcho(text);

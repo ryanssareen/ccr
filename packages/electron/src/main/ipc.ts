@@ -17,6 +17,7 @@ import {
   newSessionId,
   readLock,
   saveConfig,
+  saveSession,
   sessionPath as coreSessionPath,
   watchSessions,
   type LockOwnedElsewhereError,
@@ -160,14 +161,15 @@ export function registerIpcHandlers(
     return buildSessionLoad(payload);
   });
 
-  ipcMain.handle(CHANNELS.sessionsCreate, (_event, payload): SessionsCreateResult => {
+  ipcMain.handle(CHANNELS.sessionsCreate, async (_event, payload): Promise<SessionsCreateResult> => {
     const input = (payload as SessionsCreateInput) ?? { projectRoot: options.defaultProjectRoot() };
     const root = input.projectRoot || options.defaultProjectRoot();
     const id = newSessionId();
-    return {
-      sessionId: id,
-      sessionPath: coreSessionPath(root, id),
-    };
+    const sp = coreSessionPath(root, id);
+    // Pre-create the file so loadSession works immediately and so the
+    // watcher emits a session-changed event the rail can pick up.
+    await saveSession(root, id, []);
+    return { sessionId: id, sessionPath: sp };
   });
 
   ipcMain.handle(CHANNELS.sessionsTakeoverLock, async (_event, payload): Promise<SessionsTakeoverLockResult> => {
