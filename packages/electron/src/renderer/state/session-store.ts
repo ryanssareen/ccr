@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { QuotaState, SessionEvent } from "@ccr/core";
 import type { CcrAuth, CcrConfig } from "@ccr/core";
 import { ccrIpcClient, type ListedSession } from "../ipc-client.js";
+import { useRunStore } from "./run-store.js";
 
 function fileBasename(filepath: string): string {
   const parts = filepath.replace(/\\/g, "/").split("/").filter(Boolean);
@@ -43,7 +44,14 @@ export function groupSessionsByProject(sessions: ListedSession[]): ProjectGroup[
   return rows;
 }
 
-export function dateSubgroupLabel(ts: number): "Today" | "Yesterday" | "This week" | "Older" {
+export type DateSubgroup =
+  | "Today"
+  | "Yesterday"
+  | "This week"
+  | "This month"
+  | "Older";
+
+export function dateSubgroupLabel(ts: number): DateSubgroup {
   const d = new Date(ts);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -51,6 +59,7 @@ export function dateSubgroupLabel(ts: number): "Today" | "Yesterday" | "This wee
   if (ageDays <= 0) return "Today";
   if (ageDays === 1) return "Yesterday";
   if (ageDays <= 7) return "This week";
+  if (ageDays <= 31) return "This month";
   return "Older";
 }
 
@@ -62,6 +71,15 @@ interface SessionSlice {
   auth: CcrAuth | null;
   config: CcrConfig | null;
   quota: QuotaState | null;
+  firebaseConfig: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket?: string;
+    messagingSenderId?: string;
+    appId: string;
+  } | null;
+  authEndpoint: string;
 
   indexed: ListedSession[];
 
@@ -78,6 +96,7 @@ interface SessionSlice {
   refreshIndex: () => Promise<void>;
   selectSessionPath: (p: string) => Promise<void>;
   patchLocalIndexed: (row: ListedSession) => void;
+  deleteSession: (p: string) => Promise<{ ok: boolean; error?: string }>;
 
   subscribeSessionWatcher: () => () => void;
 }
@@ -105,6 +124,8 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
   auth: null,
   config: null,
   quota: null,
+  firebaseConfig: null,
+  authEndpoint: "",
   indexed: [],
 
   activeSessionPath: null,
@@ -122,6 +143,8 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
       auth: payload.auth,
       config: payload.config ?? {},
       bootstrapDefaultProjectRoot: payload.defaultProjectRoot,
+      firebaseConfig: payload.firebaseConfig ?? null,
+      authEndpoint: payload.authEndpoint ?? "",
     });
     await get().refreshIndex();
   },
@@ -147,16 +170,44 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
     try {
       const snap = await ccrIpcClient.loadSession(sessionPath);
       const id = snap.id ?? fileBasename(sessionPath).replace(/\.json$/, "");
+      const messages = Array.isArray(snap.messages) ? snap.messages : [];
       set({
         activeSessionPath: sessionPath,
         activeSessionId: id,
         activeProjectRoot: snap.projectRoot ?? null,
-        activeMessages: Array.isArray(snap.messages) ? snap.messages : [],
+        activeMessages: messages,
         foreignLockPid: snap.foreignLockPid ?? null,
       });
+      // Replay persisted transcript into the chat pane store so the
+      // ChatStage shows the prior conversation instead of an empty pane.
+      useRunStore.getState().hydrateFromStored(id, messages);
     } catch (e: any) {
       set({ lastLoadError: e?.message ?? String(e) });
     }
+  },
+
+  deleteSession: async (sessionPath: string) => {
+    const res = await ccrIpcClient.deleteSession(sessionPath);
+    if (!res.ok) return { ok: false, error: res.error };
+    set((state) => {
+      const wasActive =
+        normalizePath(state.activeSessionPath ?? "") === normalizePath(sessionPath);
+      return {
+        indexed: state.indexed.filter(
+          (s) => normalizePath(s.sessionPath) !== normalizePath(sessionPath),
+        ),
+        ...(wasActive
+          ? {
+              activeSessionPath: null,
+              activeSessionId: null,
+              activeProjectRoot: null,
+              activeMessages: null,
+              foreignLockPid: null,
+            }
+          : {}),
+      };
+    });
+    return { ok: true };
   },
 
   subscribeSessionWatcher: () => {

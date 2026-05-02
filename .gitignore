@@ -9,3 +9,6 @@ out
 tsconfig.tsbuildinfo
 # README in cli is copied from root at publish-time (see prepublishOnly)
 packages/cli/README.md
+
+# electron-builder output
+packages/electron/release/

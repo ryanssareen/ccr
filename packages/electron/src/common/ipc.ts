@@ -35,11 +35,19 @@ export const CHANNELS = {
   sessionsList: "sessions:list",
   sessionsLoad: "sessions:load",
   sessionsCreate: "sessions:create",
+  sessionsDelete: "sessions:delete",
   sessionsTakeoverLock: "sessions:takeover-lock",
   sessionsEvent: "sessions:event",
 
   // settings
   settingsSave: "settings:save",
+
+  // auth (in-app login)
+  authSave: "auth:save",
+  authClear: "auth:clear",
+
+  // file upload
+  fileRead: "file:read",
 } as const;
 
 // ─── Bootstrap ──────────────────────────────────────────────────────────────
@@ -48,6 +56,48 @@ export interface BootstrapPayload {
   auth: CcrAuth | null;
   config: CcrConfig;
   defaultProjectRoot: string;
+  /**
+   * Public Firebase web config used by the renderer to drive the in-app
+   * sign-in flow. Mirrors the website's NEXT_PUBLIC_FIREBASE_* env vars.
+   * Empty strings when the desktop app is built without auth credentials.
+   */
+  firebaseConfig: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket?: string;
+    messagingSenderId?: string;
+    appId: string;
+  };
+  /** Proxy endpoint used for /api/v1/exchangeFirebaseToken. */
+  authEndpoint: string;
+}
+
+export interface AuthSaveInput {
+  /** Firebase ID token returned by the JS SDK after sign-in. */
+  idToken: string;
+  email: string;
+}
+
+export interface AuthSaveResult {
+  ok: boolean;
+  error?: string;
+  auth?: CcrAuth;
+}
+
+export interface FileReadInput {
+  path: string;
+  /** Cap file size to keep agent context healthy. Default 64 KiB. */
+  maxBytes?: number;
+}
+
+export interface FileReadResult {
+  ok: boolean;
+  path?: string;
+  basename?: string;
+  content?: string;
+  truncated?: boolean;
+  error?: string;
 }
 
 // ─── Agent ──────────────────────────────────────────────────────────────────
@@ -183,6 +233,10 @@ export type SessionsTakeoverLockResult =
   | { ok: true }
   | { ok: false; error: string; pid?: number };
 
+export type SessionsDeleteResult =
+  | { ok: true }
+  | { ok: false; error: string; pid?: number };
+
 // ─── Settings ───────────────────────────────────────────────────────────────
 
 export type SettingsSaveInput = Partial<CcrConfig>;
@@ -228,9 +282,17 @@ export interface CcrBridgeApi {
   loadSession(sessionPath: string): Promise<SessionsLoadResult>;
   createSession(input: SessionsCreateInput): Promise<SessionsCreateResult>;
   takeoverLock(sessionPath: string): Promise<SessionsTakeoverLockResult>;
+  deleteSession(sessionPath: string): Promise<SessionsDeleteResult>;
 
   // settings
   saveSettings(input: SettingsSaveInput): Promise<void>;
+
+  // auth (in-app login)
+  saveAuthFromFirebase(input: AuthSaveInput): Promise<AuthSaveResult>;
+  clearAuth(): Promise<void>;
+
+  // file upload (read attached file from disk)
+  readFile(input: FileReadInput): Promise<FileReadResult>;
 
   // push streams (main → renderer)
   onAgentToken(listener: Listener<AgentTokenPayload>): Unsubscribe;

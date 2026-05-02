@@ -25,7 +25,13 @@ export function installBridgeMock(overrides: Record<string, unknown> = {}) {
 
   const bridge = {
     bootstrap: vi.fn(() =>
-      Promise.resolve({ auth: null, config: {}, defaultProjectRoot: "/tmp/desktop" }),
+      Promise.resolve({
+        auth: null,
+        config: {},
+        defaultProjectRoot: "/tmp/desktop",
+        firebaseConfig: { apiKey: "", authDomain: "", projectId: "", appId: "" },
+        authEndpoint: "",
+      }),
     ),
     startAgent: vi.fn(() =>
       Promise.resolve({ ok: true, sessionId: "test", startedAt: new Date().toISOString() }),
@@ -39,7 +45,11 @@ export function installBridgeMock(overrides: Record<string, unknown> = {}) {
     ),
     createSession: vi.fn(() => Promise.resolve({ sessionId: "test", sessionPath: "/test/test.json" })),
     takeoverLock: vi.fn(() => Promise.resolve({ ok: true })),
+    deleteSession: vi.fn(() => Promise.resolve({ ok: true })),
     saveSettings: vi.fn(() => Promise.resolve()),
+    saveAuthFromFirebase: vi.fn(() => Promise.resolve({ ok: false, error: "stub" })),
+    clearAuth: vi.fn(() => Promise.resolve()),
+    readFile: vi.fn(() => Promise.resolve({ ok: false, error: "stub" })),
     onAgentToken: subscribe(CHANNELS.agentToken),
     onAssistantTurnEnd: subscribe(CHANNELS.agentAssistantTurnEnd),
     onToolStart: subscribe(CHANNELS.agentToolStart),

@@ -60,7 +60,7 @@ describe("ChatStage", () => {
   // ship a layout shim or move ChatStage to non-virtualized rendering at
   // small list sizes.
   it.skip("streaming tokens concatenate", () => {
-    render(<ChatStage mode="ask" model="m" onQuotaPush={vi.fn()} />);
+    render(<ChatStage mode="ask" model="m" onPickModel={vi.fn()} onQuotaPush={vi.fn()} />);
 
     subs["agent:token"]!.forEach((fn) => fn({ sessionId: "sess", token: "word" }));
 
@@ -103,7 +103,7 @@ describe("ChatStage", () => {
     const run = (await import("../state/run-store.js")).useRunStore;
     run.setState({ entries: rows, streamingTail: "" });
 
-    render(<ChatStage mode="ask" model="m" onQuotaPush={vi.fn()} />);
+    render(<ChatStage mode="ask" model="m" onPickModel={vi.fn()} onQuotaPush={vi.fn()} />);
     expect(screen.getAllByText(/bulk-/).length).toBeGreaterThan(0);
   });
 });

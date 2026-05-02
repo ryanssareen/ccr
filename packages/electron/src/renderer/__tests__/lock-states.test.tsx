@@ -35,7 +35,7 @@ afterEach(() => cleanup());
 
 describe("Lock-aware chat shell", () => {
   it("shows read-only hint when PID is alive elsewhere", () => {
-    render(<ChatStage mode="ask" model="m" onQuotaPush={() => undefined} />);
+    render(<ChatStage mode="ask" model="m" onPickModel={() => undefined} onQuotaPush={() => undefined} />);
     expect(screen.getByText(/Locked · PID 4242/)).toBeTruthy();
   });
 });

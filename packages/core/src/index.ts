@@ -75,6 +75,7 @@ export {
   loadConfig,
   saveConfig,
   loadAuth,
+  saveAuth,
   clearAuth,
   applyConfig,
   configPath,

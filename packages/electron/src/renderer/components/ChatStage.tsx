@@ -8,6 +8,7 @@ import { ApprovalModal } from "./ApprovalModal.js";
 import { QuestionModal } from "./QuestionModal.js";
 import { useSessionStore } from "../state/session-store.js";
 import { type ChatPaneEntry, useRunStore } from "../state/run-store.js";
+import { KNOWN_MODELS } from "../known-models.js";
 import type { DesktopMode } from "../theme.js";
 
 const themeCss: Record<string, string> = { ...themeVals };
@@ -18,7 +19,7 @@ function StreamingCaret() {
     const t = setInterval(() => setOn((v) => !v), 480);
     return () => clearInterval(t);
   }, []);
-  return <span style={{ opacity: on ? 0.3 : 1, color: themeVals.teal }}>│</span>;
+  return <span style={{ opacity: on ? 0.3 : 1, color: themeVals.clay }}>│</span>;
 }
 
 interface AskAccum {
@@ -28,13 +29,21 @@ interface AskAccum {
   answers: Parameters<typeof ccrIpcClient.askResponse>[1];
 }
 
-/** Center transcript + streamed tokens + overlays + composer. */
+interface AttachedFile {
+  basename: string;
+  path: string;
+  content: string;
+  truncated: boolean;
+}
+
 export function ChatStage(props: {
   mode: DesktopMode;
   model: string;
+  onPickModel: (m: string) => void;
   onQuotaPush: (q: unknown) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionId = useSessionStore((s) => s.activeSessionId);
   const sessionPath = useSessionStore((s) => s.activeSessionPath);
   const projectRoot = useSessionStore((s) => s.activeProjectRoot);
@@ -54,6 +63,7 @@ export function ChatStage(props: {
   const [running, setRunning] = useState(false);
   const [takeConfirm, setTakeConfirm] = useState(false);
   const [askAccum, setAskAccum] = useState<AskAccum | null>(null);
+  const [attached, setAttached] = useState<AttachedFile[]>([]);
 
   const readOnlyForeign =
     foreignPid != null && typeof foreignPid === "number" && foreignPid > 0;
@@ -122,29 +132,38 @@ export function ChatStage(props: {
     return () => unsubs.forEach((u) => u());
   }, [props]);
 
+  function buildPrompt(text: string): string {
+    if (attached.length === 0) return text;
+    const blocks = attached.map((a) => {
+      const note = a.truncated ? " (truncated)" : "";
+      return `--- File: ${a.basename}${note} ---\n${a.content}\n--- End ${a.basename} ---`;
+    });
+    return `${blocks.join("\n\n")}\n\n${text}`;
+  }
+
   async function submit() {
     const text = input.trim();
     const sid = sessionId;
-    // Fall back to bootstrap default when the session JSON predates the
-    // projectRoot field (older CLI-written sessions).
     const pr = projectRoot ?? useSessionStore.getState().bootstrapDefaultProjectRoot;
     const sp = sessionPath;
-    if (!text) return;
+    if (!text && attached.length === 0) return;
     if (readOnlyForeign) {
       useRunStore.getState().sysLine("Read-only — another window holds the lock.", "warn");
       return;
     }
     if (!sid || !pr || !sp) {
       useRunStore.getState().sysLine(
-        "Pick or create a session before sending. (No active session selected.)",
+        "Pick or create a session before sending.",
         "warn",
       );
       return;
     }
     if (running) return;
     setRunning(true);
+    const composed = buildPrompt(text || "(see attached file)");
     setInput("");
-    useRunStore.getState().pushUserEcho(text);
+    setAttached([]);
+    useRunStore.getState().pushUserEcho(text || `(attached ${attached.length} file)`);
     useRunStore.setState({ streamingTail: "" });
     useRunStore.getState().setRunningSession(sid);
 
@@ -154,7 +173,7 @@ export function ChatStage(props: {
         projectRoot: pr,
         model: props.model,
         mode: props.mode,
-        text,
+        text: composed,
       });
       if (!res.ok) {
         useRunStore.getState().setRunningSession(null);
@@ -167,6 +186,30 @@ export function ChatStage(props: {
       useRunStore.getState().setRunningSession(null);
       useRunStore.getState().sysLine(e?.message ?? String(e), "error");
     }
+  }
+
+  async function handleFilePick(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = ""; // reset so picking the same file twice fires
+    if (!file) return;
+    // Electron file inputs expose file.path
+    const filePath = (file as unknown as { path?: string }).path;
+    if (!filePath) {
+      useRunStore.getState().sysLine("Could not resolve file path.", "warn");
+      return;
+    }
+    const res = await ccrIpcClient.readFile({ path: filePath });
+    if (!res.ok || res.content == null) {
+      useRunStore.getState().sysLine(res.error ?? "Failed to read file.", "warn");
+      return;
+    }
+    const next: AttachedFile = {
+      basename: res.basename ?? file.name,
+      path: filePath,
+      content: res.content,
+      truncated: !!res.truncated,
+    };
+    setAttached((prev) => [...prev, next]);
   }
 
   async function takeoverLock() {
@@ -185,6 +228,8 @@ export function ChatStage(props: {
   }
 
   const askQ = askAccum?.questions[askAccum.step];
+  const catalog = KNOWN_MODELS as readonly string[];
+  const modelInCatalog = catalog.includes(props.model);
 
   return (
     <div
@@ -193,59 +238,62 @@ export function ChatStage(props: {
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        background: "#101218",
+        background: themeVals.bg,
       }}
     >
       {takeConfirm && readOnlyForeign && (
         <div
           style={{
-            padding: "10px 12px",
-            background: "#2a1f12",
+            padding: "10px 14px",
+            background: "rgba(201, 142, 58, 0.14)",
             color: themeVals.amber,
             fontSize: 13,
             display: "flex",
             gap: 12,
             alignItems: "center",
+            borderBottom: `1px solid ${themeVals.borderSoft}`,
           }}
         >
           <span style={{ flex: 1 }}>
             Take over this session? The other window stops holding the lock only if its PID has exited.
           </span>
-          <button type="button" onClick={() => setTakeConfirm(false)}>
+          <button type="button" className="btn btn-ghost" onClick={() => setTakeConfirm(false)}>
             Cancel
           </button>
-          <button type="button" onClick={() => void takeoverLock()}>
+          <button type="button" className="btn btn-primary" onClick={() => void takeoverLock()}>
             Take over
           </button>
         </div>
       )}
+
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        {/* Breadcrumb header — Claude-Code style */}
+        {/* Breadcrumb header */}
         <div
           style={{
-            padding: "10px 18px",
+            padding: "12px 22px",
             display: "flex",
             alignItems: "center",
             gap: 10,
-            borderBottom: `1px solid ${themeVals.borderDim}`,
+            borderBottom: `1px solid ${themeVals.borderSoft}`,
             flexShrink: 0,
-            minHeight: 44,
+            minHeight: 48,
+            background: themeVals.bg,
           }}
         >
           {sessionId ? (
             <>
-              <span style={{ color: themeVals.textMute, fontSize: 12 }}>
-                ⏵
-              </span>
+              <span style={{ color: themeVals.textMute, fontSize: 12 }}>⏵</span>
               <span
                 style={{
                   color: themeVals.text,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: 500,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   maxWidth: "calc(100% - 200px)",
+                  fontFamily: "var(--font-serif)",
+                  letterSpacing: "-0.01em",
                 }}
                 title={sessionId}
               >
@@ -254,7 +302,7 @@ export function ChatStage(props: {
             </>
           ) : (
             <span style={{ color: themeVals.textMute, fontSize: 13 }}>
-              No session selected — pick one on the left or start a new one.
+              Pick a session on the left, or start a new one.
             </span>
           )}
           {readOnlyForeign && (
@@ -263,13 +311,13 @@ export function ChatStage(props: {
             </span>
           )}
           {running && !readOnlyForeign && (
-            <span style={{ marginLeft: "auto", color: themeVals.teal, fontSize: 11 }}>
+            <span style={{ marginLeft: "auto", color: themeVals.clay, fontSize: 11 }}>
               Streaming…
             </span>
           )}
         </div>
 
-        {/* Empty state when no messages yet */}
+        {/* Empty state */}
         {entries.length === 0 && streamingTail.length === 0 && sessionId && (
           <div
             style={{
@@ -278,31 +326,38 @@ export function ChatStage(props: {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 12,
+              gap: 14,
               padding: 32,
               color: themeVals.textMute,
             }}
           >
             <pre
               style={{
-                color: themeVals.teal,
+                color: themeVals.clay,
                 fontSize: 14,
                 lineHeight: 1.15,
                 margin: 0,
                 whiteSpace: "pre",
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "var(--font-mono)",
               }}
             >{`  /\\_/\\
  ( o.o )
   > ^ <
  /     \\
 (__|_|__)`}</pre>
-            <div style={{ fontSize: 13, color: themeVals.text }}>
+            <div
+              style={{
+                fontSize: 26,
+                color: themeVals.text,
+                fontFamily: "var(--font-display)",
+                fontWeight: 600,
+                transform: "rotate(-1deg)",
+              }}
+            >
               Ready when you are.
             </div>
-            <div style={{ fontSize: 12, color: themeVals.textMute, textAlign: "center", maxWidth: 340 }}>
-              Type a request below — read code, run shell commands, edit files.
-              ccr will ask before doing anything destructive.
+            <div style={{ fontSize: 13, color: themeVals.textMute, textAlign: "center", maxWidth: 380 }}>
+              Type a request below — read code, run shell commands, edit files. ccr will ask before doing anything destructive.
             </div>
           </div>
         )}
@@ -313,7 +368,7 @@ export function ChatStage(props: {
             flex: entries.length === 0 && streamingTail.length === 0 && sessionId ? 0 : 1,
             minHeight: 0,
             overflow: "auto",
-            padding: "16px 22px 18px",
+            padding: "16px 24px 18px",
           }}
         >
           <div
@@ -345,12 +400,13 @@ export function ChatStage(props: {
                     <div
                       style={{
                         paddingLeft: 14,
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 13,
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 13.5,
                         color: themeVals.text,
+                        lineHeight: 1.55,
                       }}
                     >
-                      <span style={{ color: themeVals.teal, fontWeight: 700 }}>⏺ ccr </span>
+                      <span style={{ color: themeVals.clay, fontWeight: 700 }}>⏺ ccr </span>
                       <span style={{ whiteSpace: "pre-wrap" }}>{streamingTail}</span>
                       <StreamingCaret />
                     </div>
@@ -362,11 +418,13 @@ export function ChatStage(props: {
         </div>
       </div>
 
+      {/* Composer */}
       <div
         style={{
           flexShrink: 0,
-          padding: "12px 22px 18px",
-          background: "#101218",
+          padding: "12px 24px 18px",
+          background: themeVals.bg,
+          borderTop: `1px solid ${themeVals.borderSoft}`,
         }}
       >
         {readOnlyForeign && (
@@ -376,7 +434,7 @@ export function ChatStage(props: {
               type="button"
               style={{
                 cursor: "pointer",
-                color: themeVals.teal,
+                color: themeVals.clay,
                 background: "transparent",
                 border: "none",
                 padding: 0,
@@ -389,20 +447,68 @@ export function ChatStage(props: {
             </button>
           </div>
         )}
+
+        {/* Attached files chips */}
+        {attached.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {attached.map((a, i) => (
+              <span
+                key={a.path + i}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: themeVals.bgAlt2,
+                  color: themeVals.text,
+                  border: `1px solid ${themeVals.borderSoft}`,
+                }}
+                title={a.path}
+              >
+                📎 {a.basename}
+                {a.truncated && (
+                  <span style={{ color: themeVals.amber, fontSize: 10 }}>(trim)</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAttached((prev) => prev.filter((_, j) => j !== i))}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: themeVals.textMute,
+                    cursor: "pointer",
+                    padding: 0,
+                    lineHeight: 1,
+                  }}
+                  aria-label={`Remove ${a.basename}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div
           style={{
-            border: `1px solid ${themeVals.border}`,
-            borderRadius: 10,
-            background: "#161922",
-            padding: "10px 12px",
-            transition: "border-color 0.12s",
+            border: `1px solid ${themeVals.borderSoft}`,
+            borderRadius: 12,
+            background: themeVals.white,
+            padding: "10px 12px 8px",
+            transition: "border-color 0.12s, box-shadow 0.12s",
           }}
-          onFocusCapture={(e) =>
-            ((e.currentTarget as HTMLDivElement).style.borderColor = themeVals.tealDim)
-          }
-          onBlurCapture={(e) =>
-            ((e.currentTarget as HTMLDivElement).style.borderColor = themeVals.border)
-          }
+          onFocusCapture={(e) => {
+            const el = e.currentTarget as HTMLDivElement;
+            el.style.borderColor = themeVals.clay;
+            el.style.boxShadow = "0 0 0 3px rgba(217, 119, 87, 0.12)";
+          }}
+          onBlurCapture={(e) => {
+            const el = e.currentTarget as HTMLDivElement;
+            el.style.borderColor = themeVals.borderSoft;
+            el.style.boxShadow = "none";
+          }}
         >
           <textarea
             disabled={readOnlyForeign || running}
@@ -431,25 +537,99 @@ export function ChatStage(props: {
               color: themeVals.text,
               border: "none",
               outline: "none",
-              fontFamily: "inherit",
-              fontSize: 14,
+              fontFamily: "var(--font-sans)",
+              fontSize: 14.5,
               resize: "none",
-              lineHeight: 1.5,
+              lineHeight: 1.55,
             }}
           />
+
+          {/* Composer footer: file upload (left) + model picker (middle-right) + send */}
           <div
             style={{
-              marginTop: 6,
-              fontSize: 10.5,
-              color: themeVals.textMute,
               display: "flex",
-              gap: 12,
+              alignItems: "center",
+              gap: 8,
+              marginTop: 4,
+              paddingTop: 4,
+              borderTop: `1px solid ${themeVals.borderSoft2}`,
             }}
           >
-            <span>Enter to send</span>
-            <span>Shift+Enter newline</span>
-            <span>⌘K command bar</span>
+            <button
+              type="button"
+              className="btn-icon"
+              title="Attach file"
+              aria-label="Attach file"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={readOnlyForeign || running}
+              style={{ borderColor: "transparent" }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.42 17.41a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={(e) => void handleFilePick(e)}
+              style={{ display: "none" }}
+            />
+
+            <div style={{ flex: 1 }} />
+
+            {/* Model picker — bottom middle-right */}
+            <select
+              value={modelInCatalog ? props.model : props.model}
+              onChange={(e) => props.onPickModel(e.target.value)}
+              disabled={running}
+              style={{
+                background: themeVals.bgAlt,
+                border: `1px solid ${themeVals.borderSoft}`,
+                borderRadius: 6,
+                color: themeVals.textDim,
+                padding: "4px 8px",
+                fontSize: 11.5,
+                fontFamily: "var(--font-mono)",
+                cursor: "pointer",
+                maxWidth: 220,
+              }}
+              title="Model"
+            >
+              {!modelInCatalog && (
+                <option value={props.model}>{props.model}</option>
+              )}
+              {(KNOWN_MODELS as readonly string[]).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={readOnlyForeign || running || (!input.trim() && attached.length === 0)}
+              className="btn btn-primary"
+              style={{ padding: "7px 14px", fontSize: 13 }}
+            >
+              {running ? "…" : "Send"}
+            </button>
           </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            color: themeVals.textMute,
+            display: "flex",
+            gap: 14,
+            paddingLeft: 4,
+          }}
+        >
+          <span>Enter to send</span>
+          <span>Shift+Enter newline</span>
+          <span>⌘K command bar</span>
         </div>
       </div>
 

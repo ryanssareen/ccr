@@ -6,11 +6,16 @@ import {
   type AgentAskResponseInput,
   type AgentStartInput,
   type AgentStartResult,
+  type AuthSaveInput,
+  type AuthSaveResult,
   type BootstrapPayload,
   type CcrBridgeApi,
+  type FileReadInput,
+  type FileReadResult,
   type Listener,
   type SessionsCreateInput,
   type SessionsCreateResult,
+  type SessionsDeleteResult,
   type SessionsListResult,
   type SessionsLoadResult,
   type SessionsTakeoverLockResult,
@@ -46,9 +51,18 @@ const api: CcrBridgeApi = {
     invoke<SessionsCreateResult>(CHANNELS.sessionsCreate, input),
   takeoverLock: (sessionPath: string) =>
     invoke<SessionsTakeoverLockResult>(CHANNELS.sessionsTakeoverLock, sessionPath),
+  deleteSession: (sessionPath: string) =>
+    invoke<SessionsDeleteResult>(CHANNELS.sessionsDelete, sessionPath),
 
   saveSettings: (input: SettingsSaveInput) =>
     invoke<void>(CHANNELS.settingsSave, input),
+
+  saveAuthFromFirebase: (input: AuthSaveInput) =>
+    invoke<AuthSaveResult>(CHANNELS.authSave, input),
+  clearAuth: () => invoke<void>(CHANNELS.authClear),
+
+  readFile: (input: FileReadInput) =>
+    invoke<FileReadResult>(CHANNELS.fileRead, input),
 
   onAgentToken: (listener) => subscribe(CHANNELS.agentToken, listener),
   onAssistantTurnEnd: (listener) =>

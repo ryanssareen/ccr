@@ -13,12 +13,64 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "npm run test:main && npm run test:renderer",
     "test:main": "node --test --import tsx 'src/main/**/*.test.ts'",
-    "test:renderer": "vitest run --config vitest.renderer.config.ts"
+    "test:renderer": "vitest run --config vitest.renderer.config.ts",
+    "package:mac": "electron-vite build && electron-builder --mac dmg --arm64",
+    "package:mac:x64": "electron-vite build && electron-builder --mac dmg --x64",
+    "package:mac:universal": "electron-vite build && electron-builder --mac dmg --universal"
+  },
+  "build": {
+    "appId": "app.ccr.desktop",
+    "productName": "ccr",
+    "electronVersion": "41.5.0",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "out/main/index.js"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": false
+    },
+    "dmg": {
+      "title": "ccr ${version}",
+      "writeUpdateInfo": false,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   },
   "dependencies": {
     "@ccr/core": "*",
     "@tanstack/react-virtual": "^3.13.0",
     "cmdk": "^1.1.0",
+    "firebase": "^11.10.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.0"
@@ -31,6 +83,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^41.0.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
     "jsdom": "^26.0.0",
     "tsx": "^4.19.0",

@@ -12,15 +12,19 @@ import os from "node:os";
 import path from "node:path";
 import {
   acquireLock,
+  authPath,
+  clearAuth as coreClearAuth,
   configPath,
   listSessionsIndex,
   loadSessionByPath,
   newSessionId,
   readLock,
+  saveAuth,
   saveConfig,
   saveSession,
   sessionPath as coreSessionPath,
   watchSessions,
+  type CcrAuth,
   type LockOwnedElsewhereError,
   type SessionEvent,
 } from "@ccr/core";
@@ -31,11 +35,16 @@ import {
   type AgentApprovalResponseInput,
   type AgentAskResponseInput,
   type AgentStartInput,
+  type AuthSaveInput,
+  type AuthSaveResult,
+  type FileReadInput,
+  type FileReadResult,
   type ListedSession,
   type MainToRendererChannel,
   type MainToRendererPayloads,
   type SessionsCreateInput,
   type SessionsCreateResult,
+  type SessionsDeleteResult,
   type SessionsListResult,
   type SessionsLoadResult,
   type SessionsTakeoverLockResult,
@@ -140,8 +149,22 @@ export interface RegisterIpcOptions {
   /** Returns the resolved project root used when creating sessions without one. */
   defaultProjectRoot: () => string;
   /** Where renderer settings:save calls should land. */
-  loadConfigOnce: () => Promise<{ groqApiKey?: string; model?: string }>;
+  loadConfigOnce: () => Promise<import("@ccr/core").CcrConfig>;
+  /** Public Firebase config used by the renderer login flow. */
+  firebaseConfig: () => {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket?: string;
+    messagingSenderId?: string;
+    appId: string;
+  };
+  /** Proxy endpoint used to mint a CCR token from a Firebase ID token. */
+  authEndpoint: () => string;
 }
+
+const DEFAULT_FILE_READ_BYTES = 64 * 1024;
+const MAX_FILE_READ_BYTES = 256 * 1024;
 
 /**
  * Registers all renderer↔main handlers. Returns a dispose function the app
@@ -163,6 +186,8 @@ export function registerIpcHandlers(
       auth,
       config: config ?? {},
       defaultProjectRoot: options.defaultProjectRoot(),
+      firebaseConfig: options.firebaseConfig(),
+      authEndpoint: options.authEndpoint(),
     };
   });
 
@@ -224,12 +249,119 @@ export function registerIpcHandlers(
     }
   });
 
+  ipcMain.handle(CHANNELS.sessionsDelete, async (_event, payload): Promise<SessionsDeleteResult> => {
+    if (typeof payload !== "string" || !payload) {
+      return { ok: false, error: "sessions:delete expects a session path." };
+    }
+    const sessionPathAbs = payload;
+    const livePid = await readForeignLockPid(sessionPathAbs);
+    if (livePid) {
+      return {
+        ok: false,
+        error: "Another window is using this session. Close it first or take it over.",
+        pid: livePid,
+      };
+    }
+    try {
+      await fs.unlink(sessionPathAbs).catch((err: NodeJS.ErrnoException) => {
+        if (err.code !== "ENOENT") throw err;
+      });
+      const lockPath = sessionPathAbs.replace(/\.json$/, "") + ".lock";
+      await fs.unlink(lockPath).catch(() => {
+        // best-effort — stale lock without a session is fine
+      });
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
   // ─── settings ─────────────────────────────────────────────────────────────
   ipcMain.handle(CHANNELS.settingsSave, async (_event, payload) => {
     const incoming = (payload as SettingsSaveInput) ?? {};
     const current = await options.loadConfigOnce();
     await saveConfig({ ...current, ...incoming });
     void configPath; // suppress unused-import warning if added later
+  });
+
+  // ─── auth (in-app login) ──────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.authSave, async (_event, payload): Promise<AuthSaveResult> => {
+    const input = payload as AuthSaveInput;
+    if (!input?.idToken || typeof input.idToken !== "string") {
+      return { ok: false, error: "Missing Firebase ID token." };
+    }
+    const endpoint = options.authEndpoint();
+    try {
+      const res = await fetch(`${endpoint.replace(/\/$/, "")}/api/v1/exchangeFirebaseToken`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: input.idToken }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return { ok: false, error: `Token exchange failed (${res.status}). ${text}`.trim() };
+      }
+      const data = (await res.json()) as { token?: string; email?: string };
+      if (!data?.token) return { ok: false, error: "Exchange endpoint returned no token." };
+
+      const auth: CcrAuth = {
+        token: data.token,
+        endpoint,
+        email: data.email ?? input.email ?? "",
+      };
+      await saveAuth(auth);
+      void authPath;
+      return { ok: true, auth };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle(CHANNELS.authClear, async () => {
+    await coreClearAuth();
+  });
+
+  // ─── file read (for chat attachment) ──────────────────────────────────────
+  ipcMain.handle(CHANNELS.fileRead, async (_event, payload): Promise<FileReadResult> => {
+    const input = (payload ?? {}) as FileReadInput;
+    if (!input.path || typeof input.path !== "string") {
+      return { ok: false, error: "Missing path." };
+    }
+    const cap = Math.min(
+      Math.max(input.maxBytes ?? DEFAULT_FILE_READ_BYTES, 1024),
+      MAX_FILE_READ_BYTES,
+    );
+    try {
+      const stat = await fs.stat(input.path);
+      const size = stat.size;
+      const fh = await fs.open(input.path, "r");
+      try {
+        const len = Math.min(size, cap);
+        const buf = Buffer.alloc(len);
+        await fh.read(buf, 0, len, 0);
+        const content = buf.toString("utf8");
+        return {
+          ok: true,
+          path: input.path,
+          basename: path.basename(input.path),
+          content,
+          truncated: size > cap,
+        };
+      } finally {
+        await fh.close();
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   });
 
   return () => {
@@ -242,8 +374,12 @@ export function registerIpcHandlers(
       CHANNELS.sessionsList,
       CHANNELS.sessionsLoad,
       CHANNELS.sessionsCreate,
+      CHANNELS.sessionsDelete,
       CHANNELS.sessionsTakeoverLock,
       CHANNELS.settingsSave,
+      CHANNELS.authSave,
+      CHANNELS.authClear,
+      CHANNELS.fileRead,
     ]) {
       ipcMain.removeHandler(channel);
     }

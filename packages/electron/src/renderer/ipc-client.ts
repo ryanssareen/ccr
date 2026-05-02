@@ -16,13 +16,18 @@ import type {
   AgentTokenPayload,
   AgentToolEndPayload,
   AgentToolStartPayload,
+  AuthSaveInput,
+  AuthSaveResult,
   BootstrapPayload,
   CcrBridgeApi,
+  FileReadInput,
+  FileReadResult,
   Listener,
   ListedSession,
   SessionEvent,
   SessionsCreateInput,
   SessionsCreateResult,
+  SessionsDeleteResult,
   SessionsListResult,
   SessionsLoadResult,
   SessionsTakeoverLockResult,
@@ -70,10 +75,21 @@ export const ccrIpcClient = {
     sessionPath: string,
     _sessionIdHint?: string,
   ): Promise<SessionsTakeoverLockResult> => bridge().takeoverLock(sessionPath),
+  deleteSession: (sessionPath: string): Promise<SessionsDeleteResult> =>
+    bridge().deleteSession(sessionPath),
 
   // settings
   saveSettings: (input: SettingsSaveInput): Promise<void> =>
     bridge().saveSettings(input),
+
+  // auth (in-app login)
+  saveAuthFromFirebase: (input: AuthSaveInput): Promise<AuthSaveResult> =>
+    bridge().saveAuthFromFirebase(input),
+  clearAuth: (): Promise<void> => bridge().clearAuth(),
+
+  // file read
+  readFile: (input: FileReadInput): Promise<FileReadResult> =>
+    bridge().readFile(input),
 
   // push streams
   subscribeAgentTokens: (listener: Listener<AgentTokenPayload>): Unsubscribe =>
