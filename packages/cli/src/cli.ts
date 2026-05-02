@@ -11,19 +11,32 @@ import {
   initialMessages,
   makeSubagentRunner,
   runAgent,
+  listSessions,
+  loadSession,
+  newSessionId,
+  saveSession,
+  applyConfig,
+  authPath,
+  clearAuth,
+  loadAuth,
+  loadConfig,
+  VERSION,
+  checkForUpdate,
   type AgentRun,
   type BuildClientOptions,
   type QuotaState,
   type Reporter,
-} from "./agent.js";
-import { listSessions, loadSession, newSessionId, saveSession } from "./session.js";
-import type { Approver, Asker, AskRequest, AskAnswer, ToolContext } from "./tools.js";
+  type Approver,
+  type Asker,
+  type AskRequest,
+  type AskAnswer,
+  type ToolContext,
+  type CcrAuth,
+  type UpdateInfo,
+} from "@ccr/core";
 import { App, type Mode } from "./app.js";
-import { applyConfig, authPath, clearAuth, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
-
-import { VERSION } from "./version.js";
-import { checkForUpdate, type UpdateInfo } from "./update-check.js";
+import { runBrowserAuth } from "./auth/browser.js";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {
@@ -290,8 +303,8 @@ function consoleAsker(rl: readline.Interface): Asker {
 
 function consoleReporter(): Reporter {
   let header = false;
-  return {
-    token(s) {
+  const reporter: Reporter = {
+    token(s: string) {
       if (!header) {
         process.stdout.write(kleur.magenta().bold("⏺ ccr") + "\n  ");
         header = true;
@@ -302,10 +315,10 @@ function consoleReporter(): Reporter {
       if (header) process.stdout.write("\n");
       header = false;
     },
-    toolCallStart(name, argsPreview) {
+    toolCallStart(name: string, argsPreview: string) {
       console.log(kleur.dim(`→ ${name}(${argsPreview})`));
     },
-    toolCallEnd(name, result, isError) {
+    toolCallEnd(name: string, result: string, isError: boolean) {
       if (isError) {
         console.log(kleur.red(`  ${(result.split("\n")[0] || "").slice(0, 200)}`));
         return;
@@ -322,11 +335,12 @@ function consoleReporter(): Reporter {
     iterationCap() {
       console.log(kleur.yellow("⚠ hit max iterations"));
     },
-    setStatus(text) {
+    setStatus(text: string | null) {
       if (text) process.stdout.write("\r" + kleur.yellow(text) + "    ");
       else process.stdout.write("\r" + " ".repeat(80) + "\r");
     },
   };
+  return reporter;
 }
 
 function buildClientOptionsFor(
@@ -452,19 +466,7 @@ async function runLogin(args: Args): Promise<number> {
   if (args.terminal || args.noBrowser) {
     return runTerminalAuth({ method: args.authMethod });
   }
-
-  try {
-    const browserModulePath = `./auth/${"browser"}.js`;
-    const browserModule = (await import(browserModulePath)) as {
-      runBrowserAuth?: (options?: { method?: "email" | "github" }) => Promise<number>;
-    };
-    if (typeof browserModule.runBrowserAuth === "function") {
-      return browserModule.runBrowserAuth({ method: args.authMethod });
-    }
-  } catch {}
-
-  console.error(kleur.red("Browser login is not available in this build. Run `ccr login --terminal`."));
-  return 1;
+  return runBrowserAuth({ method: args.authMethod });
 }
 
 async function runLogout(): Promise<number> {

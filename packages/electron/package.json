@@ -1,0 +1,8 @@
+{
+  "name": "@ccr/desktop",
+  "version": "0.0.0",
+  "description": "CCR desktop app (Electron). Skeleton only at Unit 1; implemented in Unit 4.",
+  "license": "MIT",
+  "private": true,
+  "type": "module"
+}
