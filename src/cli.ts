@@ -22,7 +22,8 @@ import { App, type Mode } from "./app.js";
 import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
-const VERSION = "1.4.0";
+import { VERSION } from "./version.js";
+import { checkForUpdate, type UpdateInfo } from "./update-check.js";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {
@@ -503,8 +504,21 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  // Kick off the update check in the background. App.tsx renders its own
+  // banner in interactive mode; for one-shot we print a stderr line at the
+  // end so piped stdout stays clean.
+  const updatePromise: Promise<UpdateInfo | null> = checkForUpdate(VERSION).catch(() => null);
+
   if (args.print) {
-    return runOneShot(args, root, auth);
+    const code = await runOneShot(args, root, auth);
+    const info = await updatePromise;
+    if (info?.available) {
+      process.stderr.write(
+        kleur.yellow(`\n↑ update available: ${info.current} → ${info.latest}\n`) +
+          kleur.dim(`  npm i -g @ryanisavibecoder/ccr@latest\n`),
+      );
+    }
+    return code;
   }
   // Default: interactive Ink UI. If there's an initial prompt it runs first.
   return runInteractive(args, root, auth);

@@ -21,6 +21,8 @@ import type {
   ToolContext,
 } from "./tools.js";
 import { saveSession, listSessions, newSessionId } from "./session.js";
+import { VERSION } from "./version.js";
+import { checkForUpdate, type UpdateInfo } from "./update-check.js";
 import path from "node:path";
 
 export type Mode = "ask" | "accept-edits" | "bypass";
@@ -532,6 +534,19 @@ export function App(props: AppProps) {
   const [status, setStatus] = useState<string | null>(null);
   const [quota, setQuotaState] = useState<QuotaState | null>(null);
   const [recent, setRecent] = useState<{ id: string; label: string }[]>([]);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    checkForUpdate(VERSION)
+      .then((info) => {
+        if (!cancelled && info?.available) setUpdateInfo(info);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load recent sessions for the welcome panel — best-effort, ignore errors.
   useEffect(() => {
@@ -815,7 +830,7 @@ export function App(props: AppProps) {
       <Box borderStyle="round" borderColor={theme.tealDim} paddingX={1} flexDirection="column">
         <Text>
           <Text bold color={theme.text}>
-            ccr 1.4.0
+            ccr {VERSION}
           </Text>
           <Text color={theme.textMute}> · model=</Text>
           <Text color={theme.teal}>{model}</Text>
@@ -832,6 +847,12 @@ export function App(props: AppProps) {
           {"  "}· /help for commands
         </Text>
         {quota && <QuotaLine quota={quota} />}
+        {updateInfo && (
+          <Text color={theme.amber}>
+            ↑ update available: {updateInfo.current} → {updateInfo.latest} ·{" "}
+            <Text color={theme.textDim}>npm i -g @ryanisavibecoder/ccr@latest</Text>
+          </Text>
+        )}
       </Box>
 
       {showWelcome && <WelcomePanel model={model} root={props.root} recent={recent} />}
