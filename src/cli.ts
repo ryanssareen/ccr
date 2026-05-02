@@ -22,7 +22,7 @@ import { App, type Mode } from "./app.js";
 import { applyConfig, loadAuth, loadConfig, type CcrAuth } from "./config.js";
 import { runTerminalAuth } from "./auth/terminal.js";
 
-const VERSION = "1.3.1";
+const VERSION = "1.4.0";
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 
 function loadDotEnv(root: string): void {

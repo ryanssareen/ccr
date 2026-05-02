@@ -72,6 +72,107 @@ interface AppProps {
   loadProjectContext: () => Promise<string>;
 }
 
+// Theme palette ported from claude.ai/design handoff (oklch tokens → hex).
+// See plan: /Users/ryan/.claude/plans/merry-jingling-ripple.md.
+const theme = {
+  text: "#CDD0D6",
+  textDim: "#737884",
+  textMute: "#4A4F5A",
+  teal: "#3FB7B0",
+  tealDim: "#2A8A85",
+  amber: "#D9A86A",
+  amberDim: "#A88149",
+  red: "#D9624A",
+  green: "#5FBD8A",
+  purple: "#9C8BD9",
+  magenta: "#D88AB7",
+  border: "#2D3340",
+  borderDim: "#22272F",
+} as const;
+
+const ASCII_CAT = "  /\\_/\\\n ( o.o )\n  > ^ <\n /     \\\n(__|_|__)";
+
+function AsciiCat() {
+  return <Text color={theme.teal}>{ASCII_CAT}</Text>;
+}
+
+function WelcomePanel({
+  model,
+  root,
+  recent,
+}: {
+  model: string;
+  root: string;
+  recent: { id: string; label: string }[];
+}) {
+  return (
+    <Box flexDirection="column" marginX={1} marginTop={1} marginBottom={1}>
+      {/* Identity card */}
+      <Box
+        borderStyle="round"
+        borderColor={theme.border}
+        paddingX={2}
+        paddingY={1}
+        flexDirection="column"
+      >
+        <Text color={theme.teal}>CCR</Text>
+        <Box marginTop={1} flexDirection="column" alignItems="center">
+          <AsciiCat />
+        </Box>
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.textDim}>{model}</Text>
+          <Text color={theme.textMute}>{root}</Text>
+          <Text color={theme.textMute}>
+            Backed by <Text color={theme.amberDim}>Groq</Text>
+          </Text>
+        </Box>
+      </Box>
+
+      {/* Tips card */}
+      <Box
+        marginTop={1}
+        borderStyle="round"
+        borderColor={theme.border}
+        paddingX={2}
+        paddingY={0}
+        flexDirection="column"
+      >
+        <Text color={theme.amber}>TIPS</Text>
+        <Text color={theme.textDim}>
+          Run <Text color={theme.teal}>/help</Text> to see all slash commands.
+        </Text>
+        <Text color={theme.textDim}>
+          Drop a <Text color={theme.teal}>CLAUDE.md</Text> in the project root to set persistent
+          instructions.
+        </Text>
+        <Text color={theme.textDim}>
+          Press <Text color={theme.teal}>Ctrl-C</Text> to interrupt or exit.
+        </Text>
+      </Box>
+
+      {/* Recent activity card */}
+      {recent.length > 0 && (
+        <Box
+          marginTop={1}
+          borderStyle="round"
+          borderColor={theme.border}
+          paddingX={2}
+          paddingY={0}
+          flexDirection="column"
+        >
+          <Text color={theme.amber}>RECENT</Text>
+          {recent.slice(0, 2).map((s) => (
+            <Box key={s.id}>
+              <Text color={theme.textMute}>{s.id.replace(/-\d+$/, "")} </Text>
+              <Text color={theme.textDim}>{s.label}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 const KNOWN_MODELS = [
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
@@ -106,11 +207,15 @@ function QuotaLine({ quota }: { quota: QuotaState }): React.ReactElement {
 
 function colorizeDiffLine(line: string): React.ReactNode {
   if (line.startsWith("+++") || line.startsWith("---"))
-    return <Text bold>{line}</Text>;
-  if (line.startsWith("@@")) return <Text color="cyan">{line}</Text>;
-  if (line.startsWith("+")) return <Text color="green">{line}</Text>;
-  if (line.startsWith("-")) return <Text color="red">{line}</Text>;
-  return <Text>{line}</Text>;
+    return (
+      <Text bold color={theme.text}>
+        {line}
+      </Text>
+    );
+  if (line.startsWith("@@")) return <Text color={theme.tealDim}>{line}</Text>;
+  if (line.startsWith("+")) return <Text color={theme.green}>{line}</Text>;
+  if (line.startsWith("-")) return <Text color={theme.red}>{line}</Text>;
+  return <Text color={theme.textDim}>{line}</Text>;
 }
 
 function DiffOrText({ text }: { text: string }) {
@@ -146,21 +251,21 @@ function summarizeForTool(name: string, result: string): string {
 
 function ToolCard({ entry }: { entry: ToolEntry }) {
   const pending = entry.result === undefined;
-  const colour = pending ? "yellow" : entry.isError ? "red" : "green";
+  const colour = pending ? theme.amber : entry.isError ? theme.red : theme.green;
   const icon = pending ? "◌" : entry.isError ? "✗" : "✓";
   return (
     <Box flexDirection="column" marginY={0}>
       <Text>
         <Text color={colour}>{icon}</Text>
-        <Text dimColor> {entry.name}</Text>
-        <Text dimColor>({entry.argsPreview})</Text>
+        <Text color={theme.purple}> {entry.name}</Text>
+        <Text color={theme.textMute}>({entry.argsPreview})</Text>
       </Text>
       {!pending && entry.result && (
         <Box paddingLeft={2} flexDirection="column">
           {summarizeForTool(entry.name, entry.result)
             .split("\n")
             .map((line, i) => (
-              <Text key={i} dimColor>
+              <Text key={i} color={theme.textDim}>
                 {line}
               </Text>
             ))}
@@ -177,21 +282,21 @@ function MessageList({ entries }: { entries: Entry[] }) {
         if (e.kind === "user") {
           return (
             <Box key={i} marginTop={1}>
-              <Text color="cyan" bold>
+              <Text color={theme.teal} bold>
                 ›{" "}
               </Text>
-              <Text>{e.text}</Text>
+              <Text color={theme.text}>{e.text}</Text>
             </Box>
           );
         }
         if (e.kind === "assistant") {
           return (
             <Box key={i} marginTop={1} flexDirection="column">
-              <Text color="magentaBright" bold>
+              <Text color={theme.teal} bold>
                 ⏺ ccr
               </Text>
               <Box paddingLeft={2}>
-                <Text>{e.text}</Text>
+                <Text color={theme.text}>{e.text}</Text>
               </Box>
             </Box>
           );
@@ -204,7 +309,7 @@ function MessageList({ entries }: { entries: Entry[] }) {
           );
         }
         const tone = e.tone ?? "info";
-        const colour = tone === "error" ? "red" : tone === "warn" ? "yellow" : "gray";
+        const colour = tone === "error" ? theme.red : tone === "warn" ? theme.amber : theme.textMute;
         return (
           <Box key={i} flexDirection="column">
             {e.text.split("\n").map((line, j) => (
@@ -248,8 +353,8 @@ function QuestionPanel({
   const items = [...baseItems, { label: "Other (free text)…", value: "__other__" }];
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="magenta" paddingX={1} marginY={1}>
-      <Text bold color="magenta">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.purple} paddingX={1} marginY={1}>
+      <Text bold color={theme.purple}>
         ? ccr asks ({step + 1}/{req.questions.length})
       </Text>
       <Box marginTop={1}>
@@ -307,24 +412,24 @@ function ApprovalPanel({
     else if (input === "a" || input === "A") onAcceptAll();
   });
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-      <Text bold color="yellow">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.amberDim} paddingX={1} marginY={1}>
+      <Text bold color={theme.amber}>
         ⚠ {req.title}
-        <Text dimColor> ({req.kind})</Text>
+        <Text color={theme.textMute}> ({req.kind})</Text>
       </Text>
       <Box marginTop={1}>
         <DiffOrText text={req.detail} />
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>Approve? </Text>
-        <Text color="green">[y]</Text>
-        <Text dimColor> yes  </Text>
-        <Text color="red">[n/Esc]</Text>
-        <Text dimColor> no  </Text>
+        <Text color={theme.textDim}>Approve? </Text>
+        <Text color={theme.green}>[y]</Text>
+        <Text color={theme.textDim}> yes  </Text>
+        <Text color={theme.red}>[n/Esc]</Text>
+        <Text color={theme.textDim}> no  </Text>
         {req.kind === "edit" && (
           <>
-            <Text color="cyan">[a]</Text>
-            <Text dimColor> accept all edits this session</Text>
+            <Text color={theme.teal}>[a]</Text>
+            <Text color={theme.textDim}> accept all edits this session</Text>
           </>
         )}
       </Box>
@@ -362,8 +467,8 @@ function ModePicker({ current, onSelect, onCancel }: ModePickerProps) {
     value: m,
   }));
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-      <Text bold color="yellow">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.amberDim} paddingX={1} marginY={1}>
+      <Text bold color={theme.amber}>
         Pick a mode
       </Text>
       <Box marginTop={1} flexDirection="column">
@@ -385,9 +490,9 @@ function ModelPicker({ models, current, loading, onSelect, onCancel }: ModelPick
     .filter((m) => m.toLowerCase().includes(filter.toLowerCase()))
     .map((m) => ({ label: m === current ? `${m}  (current)` : m, value: m }));
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginY={1}>
-      <Text bold color="cyan">
-        Pick a model {loading && <Text dimColor>(loading…)</Text>}
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.tealDim} paddingX={1} marginY={1}>
+      <Text bold color={theme.teal}>
+        Pick a model {loading && <Text color={theme.textMute}>(loading…)</Text>}
       </Text>
       <Box marginTop={1}>
         <Text dimColor>filter: </Text>
@@ -426,6 +531,25 @@ export function App(props: AppProps) {
   const [modePicker, setModePicker] = useState<boolean>(false);
   const [status, setStatus] = useState<string | null>(null);
   const [quota, setQuotaState] = useState<QuotaState | null>(null);
+  const [recent, setRecent] = useState<{ id: string; label: string }[]>([]);
+
+  // Load recent sessions for the welcome panel — best-effort, ignore errors.
+  useEffect(() => {
+    let cancelled = false;
+    listSessions(props.root)
+      .then((paths) => {
+        if (cancelled) return;
+        const items = paths.slice(0, 2).map((p) => {
+          const id = path.basename(p, ".json");
+          return { id, label: id };
+        });
+        setRecent(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [props.root]);
 
   const apiMessagesRef = useRef<any[]>(props.initialApiMessages);
   const sessionIdRef = useRef<string>(props.initialSessionId);
@@ -683,19 +807,26 @@ export function App(props: AppProps) {
     }
   });
 
+  const showWelcome =
+    entries.length === 0 && !streaming && !approval && !askRequest && !picker && !modePicker;
+
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
+      <Box borderStyle="round" borderColor={theme.tealDim} paddingX={1} flexDirection="column">
         <Text>
-          <Text bold>ccr 1.3.1</Text>
-          <Text dimColor> · model=</Text>
-          <Text color="cyan">{model}</Text>
-          <Text dimColor> · root=</Text>
-          <Text color="green">{props.root}</Text>
+          <Text bold color={theme.text}>
+            ccr 1.4.0
+          </Text>
+          <Text color={theme.textMute}> · model=</Text>
+          <Text color={theme.teal}>{model}</Text>
+          <Text color={theme.textMute}> · root=</Text>
+          <Text color={theme.green}>{props.root}</Text>
         </Text>
-        <Text dimColor>
+        <Text color={theme.textMute}>
           session={props.initialSessionId} · mode=
-          <Text color={mode === "bypass" ? "red" : mode === "accept-edits" ? "yellow" : "green"}>
+          <Text
+            color={mode === "bypass" ? theme.red : mode === "accept-edits" ? theme.amber : theme.green}
+          >
             {mode}
           </Text>
           {"  "}· /help for commands
@@ -703,15 +834,17 @@ export function App(props: AppProps) {
         {quota && <QuotaLine quota={quota} />}
       </Box>
 
+      {showWelcome && <WelcomePanel model={model} root={props.root} recent={recent} />}
+
       <MessageList entries={entries} />
 
       {streaming && (
         <Box marginTop={1} flexDirection="column">
-          <Text color="magentaBright" bold>
+          <Text color={theme.teal} bold>
             ⏺ ccr
           </Text>
           <Box paddingLeft={2}>
-            <Text>{streaming}</Text>
+            <Text color={theme.text}>{streaming}</Text>
           </Box>
         </Box>
       )}
@@ -769,42 +902,57 @@ export function App(props: AppProps) {
         />
       )}
 
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         {running ? (
-          <Box flexDirection="column">
-            <Box>
-              <Text color="yellow">
-                <Spinner type="dots" />
-              </Text>
-              <Text dimColor> {status ?? "thinking… (Ctrl-C to interrupt)"}</Text>
-            </Box>
+          <Box>
+            <Text color={theme.amber}>
+              <Spinner type="dots" />
+            </Text>
+            <Text color={theme.textDim}> {status ?? "thinking… (Ctrl-C to interrupt)"}</Text>
           </Box>
         ) : approval ? (
-          <Text dimColor>(awaiting approval — y / n{approval.kind === "edit" ? " / a" : ""})</Text>
+          <Text color={theme.textDim}>
+            (awaiting approval — y / n{approval.kind === "edit" ? " / a" : ""})
+          </Text>
         ) : askRequest ? (
-          <Text dimColor>(answering ccr's question — ↑↓ navigate, Enter to pick)</Text>
+          <Text color={theme.textDim}>
+            (answering ccr's question — ↑↓ navigate, Enter to pick)
+          </Text>
         ) : picker ? (
-          <Text dimColor>(picking model — type to filter, Enter to choose)</Text>
+          <Text color={theme.textDim}>(picking model — type to filter, Enter to choose)</Text>
         ) : modePicker ? (
-          <Text dimColor>(picking mode — Enter to choose, Esc to cancel)</Text>
+          <Text color={theme.textDim}>(picking mode — Enter to choose, Esc to cancel)</Text>
         ) : (
-          <Box>
-            <Text color="cyan" bold>
-              ›{" "}
-            </Text>
-            <TextInput
-              value={input}
-              onChange={setInput}
-              onSubmit={(v) => {
-                setInput("");
-                submit(v);
-              }}
-            />
-          </Box>
+          <>
+            <Box
+              borderStyle="round"
+              borderColor={theme.borderDim}
+              paddingX={1}
+              marginX={1}
+            >
+              <Text color={theme.teal} bold>
+                ›{" "}
+              </Text>
+              <TextInput
+                value={input}
+                onChange={setInput}
+                onSubmit={(v) => {
+                  setInput("");
+                  submit(v);
+                }}
+                placeholder="type a request, or / for commands"
+              />
+            </Box>
+            <Box marginX={2}>
+              <Text color={theme.textMute}>
+                Enter to send · / for commands · Ctrl-C to exit
+              </Text>
+            </Box>
+          </>
         )}
       </Box>
 
-      {exitConfirm && <Text dimColor>(press Ctrl-C again to exit)</Text>}
+      {exitConfirm && <Text color={theme.textMute}>(press Ctrl-C again to exit)</Text>}
     </Box>
   );
 }
