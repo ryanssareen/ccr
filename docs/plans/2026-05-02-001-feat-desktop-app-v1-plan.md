@@ -352,7 +352,7 @@ file (or no lock if idle).
 
 ### Unit 4: Electron scaffold + main-process agent host
 
-- [ ] **Goal:** Stand up the Electron app skeleton — main process, preload, renderer, Vite dev server. Main process owns the `AgentRun`. Define and implement IPC channels for streaming, tool calls, approvals, asks. Renderer is a stub at this point.
+- [x] **Goal:** Stand up the Electron app skeleton — main process, preload, renderer, Vite dev server. Main process owns the `AgentRun`. Define and implement IPC channels for streaming, tool calls, approvals, asks. Renderer is a stub at this point.
 
 **Requirements:** R6, R7.
 
