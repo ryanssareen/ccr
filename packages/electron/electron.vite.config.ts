@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
 
+// Output dirs match electron-vite v5 defaults (out/main, out/preload,
+// out/renderer) so package.json's `main: ./out/main/index.js` resolves.
 export default defineConfig({
   main: {
     resolve: {
@@ -16,7 +18,6 @@ export default defineConfig({
       externalizeDeps: {
         exclude: ["@ccr/core"],
       },
-      outDir: path.resolve(rootDir, "dist/main"),
       rollupOptions: {
         input: {
           index: path.resolve(rootDir, "src/main/index.ts"),
@@ -34,7 +35,6 @@ export default defineConfig({
       externalizeDeps: {
         exclude: ["@ccr/core"],
       },
-      outDir: path.resolve(rootDir, "dist/preload"),
       rollupOptions: {
         input: {
           index: path.resolve(rootDir, "src/preload/index.ts"),
@@ -45,8 +45,5 @@ export default defineConfig({
   renderer: {
     root: path.resolve(rootDir, "src/renderer"),
     plugins: [react()],
-    build: {
-      outDir: path.resolve(rootDir, "dist/renderer"),
-    },
   },
 });
