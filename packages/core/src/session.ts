@@ -6,7 +6,13 @@ import os from "node:os";
 
 const SESSIONS_DIR = path.join(os.homedir(), ".ccr", "sessions");
 
-function projectId(root: string): string {
+/**
+ * Stable hash of an absolute project root path. Used as the directory name
+ * for the project's saved sessions under `~/.ccr/sessions/<projectId>/`.
+ * Public so the Electron app can group sessions by project the same way the
+ * CLI does.
+ */
+export function projectId(root: string): string {
   return createHash("sha1").update(path.resolve(root)).digest("hex").slice(0, 12);
 }
 
