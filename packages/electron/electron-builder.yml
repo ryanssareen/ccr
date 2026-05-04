@@ -9,6 +9,29 @@ files:
   - package.json
   - "!**/*.map"
   - "!**/*.ts"
+  - "!**/*.md"
+  - "!**/CHANGELOG*"
+  - "!**/README*"
+  - "!**/LICENSE*"
+  - "!**/.bin/**"
+  - "!**/__tests__/**"
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/*.test.*"
+
+# Strip ~50 locales from Electron — we only ship English UI.
+# Saves ~5-10 MB.
+electronLanguages:
+  - en
+  - en-US
+
+# Maximum compression: ~20-25% smaller installers in exchange for slower
+# builds. Worth it for a download page where every megabyte is friction.
+compression: maximum
+
+# Strip dev metadata that bloats package.json without runtime use.
+removePackageScripts: true
+removePackageKeywords: true
 
 directories:
   output: dist-installers
@@ -36,6 +59,11 @@ mac:
 
 dmg:
   artifactName: ccr-${version}-mac-${arch}.dmg
+  # ULFO = LZFSE compression (Apple's native), smaller + faster than UDZO.
+  # Requires macOS 10.11+, which is far below our 11+ floor.
+  format: ULFO
+  # Avoid bundling background images / icons we don't need.
+  writeUpdateInfo: false
 
 win:
   target:
@@ -54,7 +82,8 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   artifactName: ccr-setup-${version}-win-${arch}.exe
-  # Show install location and let the user pick start-menu folder.
+  # NSIS uses LZMA at maximum compression by default; the global
+  # `compression: maximum` already opts us into that.
 
 portable:
   artifactName: ccr-portable-${version}-win-${arch}.exe

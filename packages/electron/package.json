@@ -1,6 +1,6 @@
 {
   "name": "@ccr/desktop",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CCR desktop app (Electron). Mac + Windows + Linux installers via electron-builder.",
   "license": "MIT",
   "private": true,
