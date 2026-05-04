@@ -1,0 +1,70 @@
+appId: com.ccr.desktop
+productName: ccr
+copyright: Copyright © 2026 ryan
+
+# What gets bundled into the installer.
+# `dist/` is produced by `electron-vite build`.
+files:
+  - dist/**
+  - package.json
+  - "!**/*.map"
+  - "!**/*.ts"
+
+directories:
+  output: dist-installers
+  buildResources: build
+
+# Auto-update channel — left empty for now; once a release server is in
+# place this can publish to GitHub Releases automatically.
+# publish:
+#   provider: github
+#   owner: ryanssareen
+#   repo: ccr
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  # Code signing left to environment variables (CSC_LINK / CSC_KEY_PASSWORD)
+  # Until then, the unsigned DMG triggers the Gatekeeper "damaged" warning,
+  # which the /download page documents.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+dmg:
+  artifactName: ccr-${version}-mac-${arch}.dmg
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  # Windows code signing also defers to env vars (CSC_LINK / CSC_KEY_PASSWORD).
+  # Without it, SmartScreen will warn on first run; identical UX to the
+  # unsigned mac DMG.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ccr-setup-${version}-win-${arch}.exe
+  # Show install location and let the user pick start-menu folder.
+
+portable:
+  artifactName: ccr-portable-${version}-win-${arch}.exe
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development
+
+appImage:
+  artifactName: ccr-${version}-linux-${arch}.AppImage

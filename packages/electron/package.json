@@ -1,7 +1,7 @@
 {
   "name": "@ccr/desktop",
-  "version": "0.0.0",
-  "description": "CCR desktop app (Electron). Skeleton only at Unit 1; implemented in Unit 4.",
+  "version": "0.1.2",
+  "description": "CCR desktop app (Electron). Mac + Windows + Linux installers via electron-builder.",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -11,7 +11,11 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --import tsx 'src/main/__tests__/*.test.ts'"
+    "test": "node --test --import tsx 'src/main/__tests__/*.test.ts'",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -mwl"
   },
   "dependencies": {
     "@ccr/core": "*",
@@ -23,6 +27,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^41.5.0",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "tsx": "^4.19.0",
     "vite": "^7.3.2"
