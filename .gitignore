@@ -12,3 +12,4 @@ packages/cli/README.md
 
 # electron-builder output
 packages/electron/release/
+.npmrc
