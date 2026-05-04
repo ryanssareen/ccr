@@ -1,0 +1,18 @@
+{
+  "name": "@ccr/eval",
+  "version": "0.0.0",
+  "description": "Model evaluation harness for the CCR proxy. Runs LeetCode + SWE challenges against multiple LLMs and scores correctness, latency, and code quality.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx src/run.ts",
+    "eval:single": "tsx src/run.ts --models",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
