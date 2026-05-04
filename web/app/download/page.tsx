@@ -1,17 +1,23 @@
 import Link from "next/link";
 import { CopyButton } from "./copy-button";
 
-const DMG_URL =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.1/ccr-0.1.1-arm64.dmg";
+const VERSION = "0.1.2";
 const RELEASE_URL =
-  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.1";
-const VERSION = "0.1.1";
+  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.2";
+const RELEASE_BASE =
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.2";
+
+const DMG_ARM64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-arm64.dmg`;
+const DMG_X64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-x64.dmg`;
+const WIN_SETUP_URL = `${RELEASE_BASE}/ccr-setup-${VERSION}-win-x64.exe`;
+const WIN_PORTABLE_URL = `${RELEASE_BASE}/ccr-portable-${VERSION}-win-x64.exe`;
+
 const ONE_LINER = "curl -fsSL https://ccr-ebon.vercel.app/install.sh | bash";
 const FIX_CMD = "sudo xattr -cr /Applications/ccr.app";
 
 export const metadata = {
-  title: "Download ccr for Mac",
-  description: "Native macOS desktop app for ccr — Apple Silicon DMG.",
+  title: "Download ccr",
+  description: "Native desktop app for ccr — Mac, Windows, and CLI.",
 };
 
 export default function DownloadPage() {
@@ -39,17 +45,17 @@ export default function DownloadPage() {
       </nav>
 
       <main className="page">
-        <span className="caption caption-clay">Desktop · Apple Silicon · {VERSION}</span>
+        <span className="caption caption-clay">Desktop · Mac &amp; Windows · {VERSION}</span>
         <h1 className="display">
           ccr<span className="period">,</span> on your Dock<span className="period">.</span>
         </h1>
         <p className="lede">
-          Same Groq-backed agent as the CLI, in a native macOS dashboard.
+          Same agent as the CLI, in a native desktop dashboard.
           Live-syncs with sessions you start in your terminal.
         </p>
 
         <section className="installer">
-          <p className="installer-label">One-line install (recommended)</p>
+          <p className="installer-label">One-line install (Mac, recommended)</p>
           <div className="cmd-row">
             <code className="cmd">{ONE_LINER}</code>
             <CopyButton text={ONE_LINER} />
@@ -60,15 +66,32 @@ export default function DownloadPage() {
           </p>
         </section>
 
-        <div className="or"><span>or</span></div>
+        <div className="or"><span>or download manually</span></div>
 
-        <a className="btn btn-ghost btn-lg btn-download" href={DMG_URL}>
-          <DownloadIcon />
-          <span>Download .dmg manually (Apple Silicon)</span>
-          <span className="size">133 MB</span>
-        </a>
+        <div className="downloads-grid">
+          <a className="btn btn-ghost btn-lg btn-download" href={DMG_ARM64_URL}>
+            <DownloadIcon />
+            <span>macOS · Apple Silicon</span>
+            <span className="size">109 MB</span>
+          </a>
+          <a className="btn btn-ghost btn-lg btn-download" href={DMG_X64_URL}>
+            <DownloadIcon />
+            <span>macOS · Intel</span>
+            <span className="size">116 MB</span>
+          </a>
+          <a className="btn btn-ghost btn-lg btn-download" href={WIN_SETUP_URL}>
+            <DownloadIcon />
+            <span>Windows · Installer</span>
+            <span className="size">96 MB</span>
+          </a>
+          <a className="btn btn-ghost btn-lg btn-download" href={WIN_PORTABLE_URL}>
+            <DownloadIcon />
+            <span>Windows · Portable</span>
+            <span className="size">96 MB</span>
+          </a>
+        </div>
         <p className="sub">
-          Requires macOS 11+. Intel build coming soon.{" "}
+          macOS 11+ · Windows 10+ · Linux AppImage on the way.{" "}
           <a href={RELEASE_URL} target="_blank" rel="noreferrer">
             Release notes ↗
           </a>
@@ -91,6 +114,29 @@ export default function DownloadPage() {
             above does this automatically; you only need this if you
             downloaded the DMG manually.)
           </p>
+        </section>
+
+        <section className="section trouble">
+          <h2 className="h2">
+            <span className="warn-dot" /> Got &ldquo;Windows protected your PC&rdquo;?
+          </h2>
+          <p className="trouble-lede">
+            Same story on Windows: SmartScreen flags any app without a code-signing cert.
+          </p>
+          <ol className="steps tight-steps">
+            <li>
+              <span className="step-num">1</span>
+              <div>
+                On the SmartScreen dialog, click <strong>More info</strong>.
+              </div>
+            </li>
+            <li>
+              <span className="step-num">2</span>
+              <div>
+                Click <strong>Run anyway</strong>. ccr launches. You only see this once.
+              </div>
+            </li>
+          </ol>
         </section>
 
         <section className="section">
@@ -285,6 +331,23 @@ const styles = `
     font-size: 13px;
     opacity: 0.65;
     font-weight: 400;
+  }
+
+  .downloads-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .downloads-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .tight-steps li {
+    margin-bottom: 12px;
   }
 
   .installer {
