@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { CopyButton } from "./copy-button";
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.3";
 const RELEASE_URL =
-  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.2";
+  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.3";
 const RELEASE_BASE =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.2";
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.3";
 
 const DMG_ARM64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-arm64.dmg`;
 const DMG_X64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-x64.dmg`;
@@ -63,7 +63,7 @@ export default function DownloadPage() {
               {
                 label: "Apple Silicon",
                 hint: "Recommended for M1, M2, M3, M4 Macs",
-                size: "109 MB",
+                size: "96 MB",
                 ext: "dmg",
                 href: DMG_ARM64_URL,
                 primary: true,
@@ -71,7 +71,7 @@ export default function DownloadPage() {
               {
                 label: "Intel",
                 hint: "For older x86_64 Macs",
-                size: "116 MB",
+                size: "102 MB",
                 ext: "dmg",
                 href: DMG_X64_URL,
               },
@@ -85,7 +85,7 @@ export default function DownloadPage() {
               {
                 label: "Installer",
                 hint: "NSIS setup — pick install location",
-                size: "96 MB",
+                size: "88 MB",
                 ext: "exe",
                 href: WIN_SETUP_URL,
                 primary: true,
@@ -93,7 +93,7 @@ export default function DownloadPage() {
               {
                 label: "Portable",
                 hint: "Single-file, no install needed",
-                size: "96 MB",
+                size: "88 MB",
                 ext: "exe",
                 href: WIN_PORTABLE_URL,
               },
