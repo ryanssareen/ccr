@@ -1,0 +1,32 @@
+[package]
+name = "ccr-desktop"
+version = "0.2.0"
+description = "CCR desktop app (Tauri)"
+authors = ["ryan"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "ccr_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.1", features = [] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-fs = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+glob = "0.3"
+walkdir = "2.5"
+regex = "1.11"
+
+[profile.release]
+panic = "abort"      # smaller binary
+codegen-units = 1    # better optimization
+lto = true           # link-time optimization
+opt-level = "s"      # optimize for size
+strip = true         # strip symbols

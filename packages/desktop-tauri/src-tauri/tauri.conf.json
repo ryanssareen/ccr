@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "ccr",
+  "version": "0.2.0",
+  "identifier": "com.ccr.desktop",
+  "build": {
+    "beforeDevCommand": "npm run vite:dev",
+    "beforeBuildCommand": "npm run vite:build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ccr",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 720,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://ccr-ebon.vercel.app https://*.vercel.app; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": false,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Terminal coding assistant, in a window.",
+    "longDescription": "ccr — same agent as the CLI, in a native desktop dashboard.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "frameworks": [],
+      "exceptionDomain": ""
+    },
+    "windows": {
+      "wix": null,
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

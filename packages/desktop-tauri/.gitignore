@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# Rust build artifacts
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# macOS
+.DS_Store
+
+# editor
+.vscode/
+.idea/
