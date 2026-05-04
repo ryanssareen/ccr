@@ -45,7 +45,7 @@ export default function DownloadPage() {
       </nav>
 
       <main className="page">
-        <span className="caption caption-clay">Desktop · Mac &amp; Windows · {VERSION}</span>
+        <span className="caption caption-clay">Desktop · v{VERSION}</span>
         <h1 className="display">
           ccr<span className="period">,</span> on your Dock<span className="period">.</span>
         </h1>
@@ -54,38 +54,66 @@ export default function DownloadPage() {
           Live-syncs with sessions you start in your terminal.
         </p>
 
-        <p className="downloads-label">Pick your platform</p>
-        <div className="downloads-grid">
-          <a className="btn btn-primary btn-lg btn-download" href={DMG_ARM64_URL}>
-            <DownloadIcon />
-            <span>macOS · Apple Silicon</span>
-            <span className="size">109 MB · .dmg</span>
-          </a>
-          <a className="btn btn-ghost btn-lg btn-download" href={DMG_X64_URL}>
-            <DownloadIcon />
-            <span>macOS · Intel</span>
-            <span className="size">116 MB · .dmg</span>
-          </a>
-          <a className="btn btn-primary btn-lg btn-download" href={WIN_SETUP_URL}>
-            <DownloadIcon />
-            <span>Windows · Installer</span>
-            <span className="size">96 MB · .exe</span>
-          </a>
-          <a className="btn btn-ghost btn-lg btn-download" href={WIN_PORTABLE_URL}>
-            <DownloadIcon />
-            <span>Windows · Portable</span>
-            <span className="size">96 MB · .exe</span>
-          </a>
+        <div className="pkg-grid">
+          <PackageCard
+            platform="macOS"
+            icon={<AppleIcon />}
+            requirement="macOS 11+"
+            options={[
+              {
+                label: "Apple Silicon",
+                hint: "Recommended for M1, M2, M3, M4 Macs",
+                size: "109 MB",
+                ext: "dmg",
+                href: DMG_ARM64_URL,
+                primary: true,
+              },
+              {
+                label: "Intel",
+                hint: "For older x86_64 Macs",
+                size: "116 MB",
+                ext: "dmg",
+                href: DMG_X64_URL,
+              },
+            ]}
+          />
+          <PackageCard
+            platform="Windows"
+            icon={<WindowsIcon />}
+            requirement="Windows 10+ · x64"
+            options={[
+              {
+                label: "Installer",
+                hint: "NSIS setup — pick install location",
+                size: "96 MB",
+                ext: "exe",
+                href: WIN_SETUP_URL,
+                primary: true,
+              },
+              {
+                label: "Portable",
+                hint: "Single-file, no install needed",
+                size: "96 MB",
+                ext: "exe",
+                href: WIN_PORTABLE_URL,
+              },
+            ]}
+          />
         </div>
-        <p className="sub">
-          macOS 11+ · Windows 10+ · Linux AppImage on the way.{" "}
+
+        <p className="sub-meta">
+          Linux AppImage on the way.{" "}
           <a href={RELEASE_URL} target="_blank" rel="noreferrer">
             Release notes ↗
+          </a>
+          {" · "}
+          <a href="https://github.com/ryanssareen/ccr" target="_blank" rel="noreferrer">
+            Source on GitHub ↗
           </a>
         </p>
 
         <details className="installer-details">
-          <summary>Prefer a one-line Mac installer?</summary>
+          <summary>Mac one-line installer (handles Gatekeeper for you)</summary>
           <p className="installer-sub">
             Downloads the DMG, installs to <code>/Applications</code>, strips
             macOS quarantine so you skip the &ldquo;damaged&rdquo; warning.
@@ -96,77 +124,47 @@ export default function DownloadPage() {
           </div>
         </details>
 
-        <section className="section trouble">
-          <h2 className="h2">
-            <span className="warn-dot" /> Got &ldquo;ccr is damaged&rdquo;?
-          </h2>
-          <p className="trouble-lede">
-            macOS does this for any unsigned app. The fix is one Terminal
-            command:
-          </p>
-          <div className="cmd-row">
-            <code className="cmd">{FIX_CMD}</code>
-            <CopyButton text={FIX_CMD} />
-          </div>
-          <p className="trouble-sub">
-            Then double-click ccr — it&apos;ll launch. (The one-line installer
-            above does this automatically; you only need this if you
-            downloaded the DMG manually.)
-          </p>
-        </section>
-
-        <section className="section trouble">
-          <h2 className="h2">
-            <span className="warn-dot" /> Got &ldquo;Windows protected your PC&rdquo;?
-          </h2>
-          <p className="trouble-lede">
-            Same story on Windows: SmartScreen flags any app without a code-signing cert.
-          </p>
-          <ol className="steps tight-steps">
-            <li>
-              <span className="step-num">1</span>
-              <div>
-                On the SmartScreen dialog, click <strong>More info</strong>.
-              </div>
-            </li>
-            <li>
-              <span className="step-num">2</span>
-              <div>
-                Click <strong>Run anyway</strong>. ccr launches. You only see this once.
-              </div>
-            </li>
-          </ol>
-        </section>
-
         <section className="section">
-          <h2 className="h2">Manual install steps</h2>
-          <ol className="steps">
-            <li>
-              <span className="step-num">1</span>
-              <div>
-                <strong>Open the DMG</strong> and drag <code>ccr</code> to your
-                <code> Applications</code> folder.
+          <h2 className="h2">First-launch warnings</h2>
+          <p className="trouble-lede">
+            Both binaries are unsigned (Apple and Microsoft both charge for
+            code-signing certs). One small step on first launch and you&apos;re in.
+          </p>
+          <div className="trouble-grid">
+            <div className="trouble-card">
+              <div className="trouble-card-head">
+                <AppleIcon className="trouble-icon" />
+                <span>macOS · &ldquo;ccr is damaged&rdquo;</span>
               </div>
-            </li>
-            <li>
-              <span className="step-num">2</span>
-              <div>
-                <strong>Strip the quarantine bit</strong> in Terminal (one-time):
-                <pre className="codeblock">{FIX_CMD}</pre>
-                Without this, macOS will refuse to launch with &ldquo;ccr is
-                damaged.&rdquo; This isn&apos;t a real issue — Apple flags every
-                app from a developer who hasn&apos;t paid the $99/yr cert. The
-                command tells macOS to trust the file you just chose to install.
+              <p>Run once in Terminal:</p>
+              <div className="cmd-row">
+                <code className="cmd">{FIX_CMD}</code>
+                <CopyButton text={FIX_CMD} />
               </div>
-            </li>
-            <li>
-              <span className="step-num">3</span>
-              <div>
-                <strong>Sign in</strong> with the same email or GitHub account
-                you use here. Sessions started in the CLI show up automatically.
+              <p className="trouble-sub">
+                Then double-click ccr to launch. The one-line installer above
+                does this automatically.
+              </p>
+            </div>
+            <div className="trouble-card">
+              <div className="trouble-card-head">
+                <WindowsIcon className="trouble-icon" />
+                <span>Windows · &ldquo;Windows protected your PC&rdquo;</span>
               </div>
-            </li>
-          </ol>
+              <p>Two clicks, one time:</p>
+              <ol className="trouble-steps">
+                <li>
+                  Click <strong>More info</strong>
+                </li>
+                <li>
+                  Click <strong>Run anyway</strong>
+                </li>
+              </ol>
+              <p className="trouble-sub">
+                ccr launches. SmartScreen learns to trust it after that.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="section">
@@ -228,6 +226,91 @@ function DownloadIcon() {
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
+  );
+}
+
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M17.05 20.28c-.98.96-2.05.81-3.08.36-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.36C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    </svg>
+  );
+}
+
+function WindowsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M2 4.83 11.42 3.5v8.93H2zm0 14.34L11.42 20.5v-8.93H2zm10.58 1.42L22 22V12.43h-9.42zm0-17.18V11.5H22V2z" />
+    </svg>
+  );
+}
+
+interface PackageOption {
+  label: string;
+  hint: string;
+  size: string;
+  ext: string;
+  href: string;
+  primary?: boolean;
+}
+
+interface PackageCardProps {
+  platform: string;
+  icon: React.ReactNode;
+  requirement: string;
+  options: PackageOption[];
+}
+
+function PackageCard({ platform, icon, requirement, options }: PackageCardProps) {
+  return (
+    <div className="pkg-card">
+      <header className="pkg-card-head">
+        <span className="pkg-card-icon">{icon}</span>
+        <div>
+          <h3 className="pkg-card-title">{platform}</h3>
+          <p className="pkg-card-meta">{requirement}</p>
+        </div>
+      </header>
+      <ul className="pkg-card-options">
+        {options.map((opt) => (
+          <li key={opt.href} className="pkg-option">
+            <div className="pkg-option-info">
+              <span className="pkg-option-label">
+                {opt.label}
+                {opt.primary && <span className="pkg-option-badge">Recommended</span>}
+              </span>
+              <span className="pkg-option-hint">{opt.hint}</span>
+              <span className="pkg-option-meta">
+                {opt.size}
+                <span className="pkg-option-dot">·</span>
+                <span className="pkg-option-ext">.{opt.ext}</span>
+              </span>
+            </div>
+            <a
+              className={`btn btn-lg btn-pkg ${opt.primary ? "btn-primary" : "btn-ghost"}`}
+              href={opt.href}
+            >
+              <DownloadIcon />
+              <span>Download</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -332,31 +415,205 @@ const styles = `
     font-weight: 400;
   }
 
-  .downloads-grid {
+  .pkg-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 16px;
+    margin: 0 0 16px;
   }
 
-  @media (max-width: 600px) {
-    .downloads-grid {
+  @media (max-width: 760px) {
+    .pkg-grid {
       grid-template-columns: 1fr;
     }
   }
 
-  .downloads-label {
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--accent-clay);
-    margin: 0 0 14px;
+  .pkg-card {
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.012);
+    overflow: hidden;
+    transition: border-color 0.18s ease;
   }
 
-  .btn-primary.btn-download .size {
-    color: rgba(255, 255, 255, 0.7);
-    opacity: 1;
+  .pkg-card:hover {
+    border-color: rgba(0, 0, 0, 0.18);
+  }
+
+  .pkg-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .pkg-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-ink);
+  }
+
+  .pkg-card-title {
+    margin: 0;
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--text-ink);
+  }
+
+  .pkg-card-meta {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+
+  .pkg-card-options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .pkg-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .pkg-option:first-child {
+    border-top: none;
+  }
+
+  .pkg-option-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .pkg-option-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-ink);
+  }
+
+  .pkg-option-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(217, 119, 87, 0.12);
+    color: var(--accent-clay);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .pkg-option-hint {
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+
+  .pkg-option-meta {
+    font-size: 12px;
+    color: var(--text-mid);
+    opacity: 0.8;
+    font-family: var(--font-mono, monospace);
+  }
+
+  .pkg-option-dot {
+    margin: 0 6px;
+  }
+
+  .pkg-option-ext {
+    text-transform: lowercase;
+  }
+
+  .btn-pkg {
+    flex-shrink: 0;
+    padding: 10px 18px;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  .sub-meta {
+    font-size: 13px;
+    color: var(--text-mid);
+    margin: 0 0 28px;
+  }
+
+  .sub-meta a {
+    color: var(--text-mid);
+    border-bottom: 1px solid var(--border-soft);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .sub-meta a:hover {
+    color: var(--accent-clay);
+    border-bottom-color: var(--accent-clay);
+  }
+
+  /* Trouble cards (Mac + Windows side by side) */
+  .trouble-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 18px;
+  }
+
+  @media (max-width: 760px) {
+    .trouble-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .trouble-card {
+    padding: 18px 20px;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.01);
+  }
+
+  .trouble-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: var(--text-ink);
+  }
+
+  .trouble-icon {
+    color: var(--text-mid);
+  }
+
+  .trouble-card p {
+    margin: 0 0 10px;
+    color: var(--text-mid);
+    font-size: 14px;
+  }
+
+  .trouble-steps {
+    margin: 0 0 10px;
+    padding-left: 22px;
+    color: var(--text-mid);
+    font-size: 14px;
+  }
+
+  .trouble-steps li {
+    margin-bottom: 4px;
   }
 
   .installer-details {
