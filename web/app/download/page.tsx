@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { CopyButton } from "./copy-button";
 
-const VERSION = "0.1.3";
+const VERSION = "0.2.0";
 const RELEASE_URL =
-  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.3";
+  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.2.0";
 const RELEASE_BASE =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.3";
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.2.0";
 
 const DMG_ARM64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-arm64.dmg`;
 const DMG_X64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-x64.dmg`;
-const WIN_SETUP_URL = `${RELEASE_BASE}/ccr-setup-${VERSION}-win-x64.exe`;
-const WIN_PORTABLE_URL = `${RELEASE_BASE}/ccr-portable-${VERSION}-win-x64.exe`;
+// Windows builds for Tauri are pending — link still points at the v0.1.3
+// Electron Windows installers until the GH Actions workflow ships Tauri Win.
+const WIN_RELEASE_BASE =
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.3";
+const WIN_SETUP_URL = `${WIN_RELEASE_BASE}/ccr-setup-0.1.3-win-x64.exe`;
+const WIN_PORTABLE_URL = `${WIN_RELEASE_BASE}/ccr-portable-0.1.3-win-x64.exe`;
 
 const ONE_LINER = "curl -fsSL https://ccr-ebon.vercel.app/install.sh | bash";
 const FIX_CMD = "sudo xattr -cr /Applications/ccr.app";
@@ -45,13 +49,14 @@ export default function DownloadPage() {
       </nav>
 
       <main className="page">
-        <span className="caption caption-clay">Desktop · v{VERSION}</span>
+        <span className="caption caption-clay">Desktop · v{VERSION} · Tauri</span>
         <h1 className="display">
           ccr<span className="period">,</span> on your Dock<span className="period">.</span>
         </h1>
         <p className="lede">
           Same agent as the CLI, in a native desktop dashboard.
-          Live-syncs with sessions you start in your terminal.
+          Live-syncs with sessions you start in your terminal.{" "}
+          <strong>2&nbsp;MB</strong>, not 96.
         </p>
 
         <div className="pkg-grid">
@@ -62,16 +67,16 @@ export default function DownloadPage() {
             options={[
               {
                 label: "Apple Silicon",
-                hint: "Recommended for M1, M2, M3, M4 Macs",
-                size: "96 MB",
+                hint: "M1, M2, M3, M4 — recommended",
+                size: "2 MB",
                 ext: "dmg",
                 href: DMG_ARM64_URL,
                 primary: true,
               },
               {
                 label: "Intel",
-                hint: "For older x86_64 Macs",
-                size: "102 MB",
+                hint: "Older x86_64 Macs",
+                size: "2 MB",
                 ext: "dmg",
                 href: DMG_X64_URL,
               },
@@ -84,7 +89,7 @@ export default function DownloadPage() {
             options={[
               {
                 label: "Installer",
-                hint: "NSIS setup — pick install location",
+                hint: "v0.1.3 (Electron) — Tauri build coming soon",
                 size: "88 MB",
                 ext: "exe",
                 href: WIN_SETUP_URL,
@@ -92,7 +97,7 @@ export default function DownloadPage() {
               },
               {
                 label: "Portable",
-                hint: "Single-file, no install needed",
+                hint: "v0.1.3 (Electron) — Tauri build coming soon",
                 size: "88 MB",
                 ext: "exe",
                 href: WIN_PORTABLE_URL,
