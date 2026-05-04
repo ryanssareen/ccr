@@ -54,40 +54,27 @@ export default function DownloadPage() {
           Live-syncs with sessions you start in your terminal.
         </p>
 
-        <section className="installer">
-          <p className="installer-label">One-line install (Mac, recommended)</p>
-          <div className="cmd-row">
-            <code className="cmd">{ONE_LINER}</code>
-            <CopyButton text={ONE_LINER} />
-          </div>
-          <p className="installer-sub">
-            Downloads the DMG, installs to <code>/Applications</code>, strips
-            macOS quarantine — no &ldquo;damaged&rdquo; warning, just launch.
-          </p>
-        </section>
-
-        <div className="or"><span>or download manually</span></div>
-
+        <p className="downloads-label">Pick your platform</p>
         <div className="downloads-grid">
-          <a className="btn btn-ghost btn-lg btn-download" href={DMG_ARM64_URL}>
+          <a className="btn btn-primary btn-lg btn-download" href={DMG_ARM64_URL}>
             <DownloadIcon />
             <span>macOS · Apple Silicon</span>
-            <span className="size">109 MB</span>
+            <span className="size">109 MB · .dmg</span>
           </a>
           <a className="btn btn-ghost btn-lg btn-download" href={DMG_X64_URL}>
             <DownloadIcon />
             <span>macOS · Intel</span>
-            <span className="size">116 MB</span>
+            <span className="size">116 MB · .dmg</span>
           </a>
-          <a className="btn btn-ghost btn-lg btn-download" href={WIN_SETUP_URL}>
+          <a className="btn btn-primary btn-lg btn-download" href={WIN_SETUP_URL}>
             <DownloadIcon />
             <span>Windows · Installer</span>
-            <span className="size">96 MB</span>
+            <span className="size">96 MB · .exe</span>
           </a>
           <a className="btn btn-ghost btn-lg btn-download" href={WIN_PORTABLE_URL}>
             <DownloadIcon />
             <span>Windows · Portable</span>
-            <span className="size">96 MB</span>
+            <span className="size">96 MB · .exe</span>
           </a>
         </div>
         <p className="sub">
@@ -96,6 +83,18 @@ export default function DownloadPage() {
             Release notes ↗
           </a>
         </p>
+
+        <details className="installer-details">
+          <summary>Prefer a one-line Mac installer?</summary>
+          <p className="installer-sub">
+            Downloads the DMG, installs to <code>/Applications</code>, strips
+            macOS quarantine so you skip the &ldquo;damaged&rdquo; warning.
+          </p>
+          <div className="cmd-row">
+            <code className="cmd">{ONE_LINER}</code>
+            <CopyButton text={ONE_LINER} />
+          </div>
+        </details>
 
         <section className="section trouble">
           <h2 className="h2">
@@ -344,6 +343,48 @@ const styles = `
     .downloads-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .downloads-label {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent-clay);
+    margin: 0 0 14px;
+  }
+
+  .btn-primary.btn-download .size {
+    color: rgba(255, 255, 255, 0.7);
+    opacity: 1;
+  }
+
+  .installer-details {
+    margin-top: 32px;
+    padding: 18px 20px;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .installer-details summary {
+    cursor: pointer;
+    color: var(--text-mid);
+    font-size: 14px;
+    font-weight: 500;
+    user-select: none;
+  }
+
+  .installer-details summary:hover {
+    color: var(--accent-clay);
+  }
+
+  .installer-details[open] summary {
+    margin-bottom: 12px;
+  }
+
+  .installer-details .cmd-row {
+    margin-top: 8px;
   }
 
   .tight-steps li {
