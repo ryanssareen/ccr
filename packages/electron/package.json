@@ -14,9 +14,10 @@
     "test": "npm run test:main && npm run test:renderer",
     "test:main": "node --test --import tsx 'src/main/**/*.test.ts'",
     "test:renderer": "vitest run --config vitest.renderer.config.ts",
-    "package:mac": "electron-vite build && electron-builder --mac dmg --arm64",
-    "package:mac:x64": "electron-vite build && electron-builder --mac dmg --x64",
-    "package:mac:universal": "electron-vite build && electron-builder --mac dmg --universal"
+    "package:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=1 electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=1 electron-builder --mac dmg --arm64",
+    "package:mac:release": "electron-vite build && electron-builder --mac dmg --arm64",
+    "package:mac:x64": "CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=1 electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false SKIP_NOTARIZE=1 electron-builder --mac dmg --x64",
+    "package:mac:release:universal": "electron-vite build && electron-builder --mac dmg --universal"
   },
   "build": {
     "appId": "app.ccr.desktop",
@@ -44,12 +45,15 @@
           ]
         }
       ],
-      "identity": null,
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "darkModeSupport": false
+      "darkModeSupport": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false
     },
     "afterPack": "scripts/adhoc-sign.cjs",
+    "afterSign": "scripts/notarize.cjs",
     "dmg": {
       "title": "ccr ${version}",
       "writeUpdateInfo": false,
@@ -77,6 +81,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.0",
