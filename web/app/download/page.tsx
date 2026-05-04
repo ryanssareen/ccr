@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { CopyButton } from "./copy-button";
 
 const DMG_URL =
   "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.1/ccr-0.1.1-arm64.dmg";
 const RELEASE_URL =
   "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.1";
 const VERSION = "0.1.1";
+const ONE_LINER = "curl -fsSL https://ccr-ebon.vercel.app/install.sh | bash";
+const FIX_CMD = "sudo xattr -cr /Applications/ccr.app";
 
 export const metadata = {
   title: "Download ccr for Mac",
@@ -45,9 +48,23 @@ export default function DownloadPage() {
           Live-syncs with sessions you start in your terminal.
         </p>
 
-        <a className="btn btn-primary btn-lg btn-download" href={DMG_URL}>
+        <section className="installer">
+          <p className="installer-label">One-line install (recommended)</p>
+          <div className="cmd-row">
+            <code className="cmd">{ONE_LINER}</code>
+            <CopyButton text={ONE_LINER} />
+          </div>
+          <p className="installer-sub">
+            Downloads the DMG, installs to <code>/Applications</code>, strips
+            macOS quarantine — no &ldquo;damaged&rdquo; warning, just launch.
+          </p>
+        </section>
+
+        <div className="or"><span>or</span></div>
+
+        <a className="btn btn-ghost btn-lg btn-download" href={DMG_URL}>
           <DownloadIcon />
-          <span>Download for Mac (Apple Silicon)</span>
+          <span>Download .dmg manually (Apple Silicon)</span>
           <span className="size">133 MB</span>
         </a>
         <p className="sub">
@@ -57,8 +74,27 @@ export default function DownloadPage() {
           </a>
         </p>
 
+        <section className="section trouble">
+          <h2 className="h2">
+            <span className="warn-dot" /> Got &ldquo;ccr is damaged&rdquo;?
+          </h2>
+          <p className="trouble-lede">
+            macOS does this for any unsigned app. The fix is one Terminal
+            command:
+          </p>
+          <div className="cmd-row">
+            <code className="cmd">{FIX_CMD}</code>
+            <CopyButton text={FIX_CMD} />
+          </div>
+          <p className="trouble-sub">
+            Then double-click ccr — it&apos;ll launch. (The one-line installer
+            above does this automatically; you only need this if you
+            downloaded the DMG manually.)
+          </p>
+        </section>
+
         <section className="section">
-          <h2 className="h2">Install</h2>
+          <h2 className="h2">Manual install steps</h2>
           <ol className="steps">
             <li>
               <span className="step-num">1</span>
@@ -70,13 +106,12 @@ export default function DownloadPage() {
             <li>
               <span className="step-num">2</span>
               <div>
-                <strong>First launch needs one extra click</strong> — this build
-                isn&apos;t code-signed yet, so macOS Gatekeeper will say{" "}
-                <em>&ldquo;ccr is from an unidentified developer.&rdquo;</em>
-                <br />
-                In Finder, <strong>right-click ccr → Open</strong>, then click{" "}
-                <strong>Open</strong> in the prompt. You only have to do this
-                once.
+                <strong>Strip the quarantine bit</strong> in Terminal (one-time):
+                <pre className="codeblock">{FIX_CMD}</pre>
+                Without this, macOS will refuse to launch with &ldquo;ccr is
+                damaged.&rdquo; This isn&apos;t a real issue — Apple flags every
+                app from a developer who hasn&apos;t paid the $99/yr cert. The
+                command tells macOS to trust the file you just chose to install.
               </div>
             </li>
             <li>
@@ -87,14 +122,6 @@ export default function DownloadPage() {
               </div>
             </li>
           </ol>
-
-          <details className="advanced">
-            <summary>Prefer the command line?</summary>
-            <pre className="codeblock">
-              {`# Bypass quarantine in one command after dragging to Applications:
-xattr -dr com.apple.quarantine /Applications/ccr.app`}
-            </pre>
-          </details>
         </section>
 
         <section className="section">
@@ -252,15 +279,119 @@ const styles = `
     max-width: 60ch;
   }
 
-  .btn-download {
-    box-shadow: 0 6px 18px rgba(217, 119, 87, 0.25);
-  }
   .btn-download .size {
     margin-left: auto;
     padding-left: 14px;
     font-size: 13px;
-    opacity: 0.8;
+    opacity: 0.65;
     font-weight: 400;
+  }
+
+  .installer {
+    margin: 8px 0 18px;
+    padding: 22px;
+    background: var(--bg-cream-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(217, 119, 87, 0.12);
+  }
+  .installer-label {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-clay);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .installer-sub {
+    margin: 12px 0 0;
+    font-size: 13.5px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+  .installer-sub code {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.92em;
+    background: var(--border-soft);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .cmd-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-cream);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px 12px 10px 16px;
+  }
+  .cmd {
+    flex: 1;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 13.5px;
+    color: var(--text-ink);
+    overflow-x: auto;
+    white-space: nowrap;
+    user-select: all;
+  }
+  .copy {
+    flex-shrink: 0;
+    background: var(--accent-clay);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 140ms ease;
+    font-family: var(--font-sans), Inter, sans-serif;
+  }
+  .copy:hover { background: var(--accent-clay-hover); }
+
+  .or {
+    text-align: center;
+    margin: 16px 0;
+    color: var(--text-mid);
+    font-size: 13px;
+    font-style: italic;
+  }
+  .or span {
+    background: var(--bg-cream);
+    padding: 0 12px;
+  }
+
+  .trouble {
+    background: rgba(217, 119, 87, 0.06);
+    border: 1px solid var(--accent-clay-mute, rgba(217, 119, 87, 0.3));
+    border-radius: 14px;
+    padding: 24px 26px;
+    margin-top: 56px;
+  }
+  .trouble .h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .warn-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-clay);
+    flex-shrink: 0;
+  }
+  .trouble-lede {
+    margin: 0 0 12px;
+    font-size: 15px;
+    color: var(--text-ink);
+    line-height: 1.5;
+  }
+  .trouble-sub {
+    margin: 12px 0 0;
+    font-size: 13.5px;
+    color: var(--text-mid);
+    line-height: 1.5;
   }
   .sub {
     margin: 14px 0 0;
