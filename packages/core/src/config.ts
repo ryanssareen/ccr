@@ -9,6 +9,12 @@ const AUTH_PATH = path.join(CONFIG_DIR, "auth.json");
 export interface CcrConfig {
   groqApiKey?: string;
   model?: string;
+  nickname?: string;
+  customInstructions?: string;
+  toggles?: {
+    autoAcceptEdits?: boolean;
+    sendTelemetry?: boolean;
+  };
 }
 
 export interface CcrAuth {
@@ -51,6 +57,11 @@ export async function loadAuth(): Promise<CcrAuth | null> {
     }
   } catch {}
   return null;
+}
+
+export async function saveAuth(auth: CcrAuth): Promise<void> {
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.writeFile(AUTH_PATH, JSON.stringify(auth, null, 2), { mode: 0o600 });
 }
 
 export async function clearAuth(): Promise<void> {

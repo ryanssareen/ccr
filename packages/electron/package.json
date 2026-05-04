@@ -1,17 +1,19 @@
 {
   "name": "@ccr/desktop",
-  "version": "0.1.3",
-  "description": "CCR desktop app (Electron). Mac + Windows + Linux installers via electron-builder.",
+  "version": "0.1.4",
+  "description": "CCR desktop app (Electron). Full chat UI on Mac + Windows + Linux.",
   "license": "MIT",
   "private": true,
   "type": "module",
-  "main": "./dist/main/index.js",
+  "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev --watch --inspect",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --import tsx 'src/main/__tests__/*.test.ts'",
+    "test": "npm run test:main && npm run test:renderer",
+    "test:main": "node --test --import tsx 'src/main/**/*.test.ts'",
+    "test:renderer": "vitest run --config vitest.renderer.config.ts",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
@@ -19,10 +21,18 @@
   },
   "dependencies": {
     "@ccr/core": "*",
+    "@tanstack/react-virtual": "^3.13.0",
+    "cmdk": "^1.1.0",
+    "firebase": "^11.10.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.2.0",
@@ -30,7 +40,9 @@
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "jiti": "^2.6.1",
+    "jsdom": "^26.0.0",
     "tsx": "^4.19.0",
-    "vite": "^7.3.2"
+    "vite": "^7.3.2",
+    "vitest": "^3.0.0"
   }
 }

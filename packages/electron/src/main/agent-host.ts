@@ -35,7 +35,7 @@ import type {
   AgentStartResult,
   MainToRendererChannel,
   MainToRendererPayloads,
-} from "../shared/ipc.js";
+} from "../common/ipc.js";
 
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 const PROJECT_CONTEXT_PER_FILE = 6_000;
@@ -135,30 +135,37 @@ export class AgentHost {
 
   async start(sender: RendererSender, input: AgentStartInput): Promise<AgentStartResult> {
     const sessionId = input.sessionId.trim();
-    if (!sessionId) throw new Error("sessionId is required");
+    if (!sessionId) return { ok: false, error: "sessionId is required" };
     if (this.runs.has(sessionId)) {
-      throw new AgentHostStartError(
-        "ALREADY_RUNNING",
-        `Session '${sessionId}' is already running in this window.`,
-      );
+      return {
+        ok: false,
+        error: `Session '${sessionId}' is already running in this window.`,
+      };
     }
 
-    const sessionFilePath = this.deps.sessionPath(this.projectRoot, sessionId);
+    // Per-call projectRoot — sessions can target different repos via the
+    // rail "New session in project" button. Falls back to the host's
+    // default if the renderer didn't supply one.
+    const effectiveRoot = input.projectRoot
+      ? path.resolve(input.projectRoot)
+      : this.projectRoot;
+    const sessionFilePath = this.deps.sessionPath(effectiveRoot, sessionId);
     await fs.mkdir(path.dirname(sessionFilePath), { recursive: true });
     try {
       await this.deps.acquireSessionLock(sessionFilePath, sessionId);
     } catch (error) {
       if (isLockOwnedElsewhere(error)) {
-        throw new AgentHostStartError("LOCK_OWNED_ELSEWHERE", error.message, {
-          pid: error.pid,
-          host: error.host,
-        });
+        return {
+          ok: false,
+          error: error.message,
+          lockPid: error.pid,
+        };
       }
       throw error;
     }
 
     const abortController = new AbortController();
-    const completion = this.runSession(sender, input, sessionFilePath, abortController.signal).finally(
+    const completion = this.runSession(sender, input, sessionFilePath, effectiveRoot, abortController.signal).finally(
       async () => {
         this.runs.delete(sessionId);
         this.rejectPendingForSession(sessionId, new Error("run ended"));
@@ -180,6 +187,7 @@ export class AgentHost {
     });
 
     return {
+      ok: true,
       sessionId,
       startedAt: new Date().toISOString(),
     };
@@ -210,10 +218,11 @@ export class AgentHost {
     sender: RendererSender,
     input: AgentStartInput,
     sessionFilePath: string,
+    effectiveRoot: string,
     signal: AbortSignal,
   ): Promise<void> {
     const sessionId = input.sessionId;
-    const messages = await this.loadMessagesForSession(sessionFilePath);
+    const messages = await this.loadMessagesForSession(sessionFilePath, effectiveRoot);
     messages.push({ role: "user", content: input.text });
 
     const reporter = this.createReporter(sender, sessionId);
@@ -235,7 +244,7 @@ export class AgentHost {
       client = createNoopClient();
     }
 
-    const ctx = this.createToolContext(sender, sessionId, input.mode, signal);
+    const ctx = this.createToolContext(sender, sessionId, input.mode, effectiveRoot, signal);
     const model = input.model || config.model || DEFAULT_MODEL;
     ctx.runSubagent = this.deps.makeSubagentRunner(client, ctx, model, reporter);
 
@@ -251,10 +260,10 @@ export class AgentHost {
 
     try {
       await this.deps.runAgent(run, messages);
-      await this.deps.saveSession(this.projectRoot, sessionId, messages);
+      await this.deps.saveSession(effectiveRoot, sessionId, messages);
     } catch (error) {
       if (isAbortError(error)) {
-        await this.deps.saveSession(this.projectRoot, sessionId, messages).catch(() => {});
+        await this.deps.saveSession(effectiveRoot, sessionId, messages).catch(() => {});
         return;
       }
       sender.send("agent:error", {
@@ -265,17 +274,20 @@ export class AgentHost {
     }
   }
 
-  private async loadMessagesForSession(sessionFilePath: string): Promise<any[]> {
+  private async loadMessagesForSession(
+    sessionFilePath: string,
+    effectiveRoot: string,
+  ): Promise<any[]> {
     if (existsSync(sessionFilePath)) {
       try {
         const parsed = JSON.parse(readFileSync(sessionFilePath, "utf8")) as { messages?: any[] };
-        if (Array.isArray(parsed.messages)) return parsed.messages;
+        if (Array.isArray(parsed.messages) && parsed.messages.length > 0) return parsed.messages;
       } catch {
         // fall through to a fresh session
       }
     }
-    const projectContext = await this.deps.loadProjectContext(this.projectRoot);
-    return this.deps.initialMessages(this.projectRoot, projectContext);
+    const projectContext = await this.deps.loadProjectContext(effectiveRoot);
+    return this.deps.initialMessages(effectiveRoot, projectContext);
   }
 
   private createReporter(sender: RendererSender, sessionId: string): Reporter {
@@ -295,6 +307,7 @@ export class AgentHost {
     sender: RendererSender,
     sessionId: string,
     mode: AgentMode,
+    effectiveRoot: string,
     signal: AbortSignal,
   ): ToolContext {
     const approve: Approver = async (request) => {
@@ -364,7 +377,7 @@ export class AgentHost {
     };
 
     return {
-      root: this.projectRoot,
+      root: effectiveRoot,
       approve,
       ask,
     };

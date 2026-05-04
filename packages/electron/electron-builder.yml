@@ -5,7 +5,7 @@ copyright: Copyright © 2026 ryan
 # What gets bundled into the installer.
 # `dist/` is produced by `electron-vite build`.
 files:
-  - dist/**
+  - out/**
   - package.json
   - "!**/*.map"
   - "!**/*.ts"
