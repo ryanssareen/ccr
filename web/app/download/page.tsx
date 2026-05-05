@@ -9,12 +9,9 @@ const RELEASE_BASE =
 
 const DMG_ARM64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-arm64.dmg`;
 const DMG_X64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-x64.dmg`;
-// Windows installer still on the v0.1.3 release (Electron) — v0.1.4
-// is mac-only for now while we re-package the new chat UI for win.
-const WIN_RELEASE_BASE =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.3";
-const WIN_SETUP_URL = `${WIN_RELEASE_BASE}/ccr-setup-0.1.3-win-x64.exe`;
-const WIN_PORTABLE_URL = `${WIN_RELEASE_BASE}/ccr-portable-0.1.3-win-x64.exe`;
+const WIN_SETUP_URL = `${RELEASE_BASE}/ccr-setup-${VERSION}-win-x64.exe`;
+const WIN_PORTABLE_URL = `${RELEASE_BASE}/ccr-portable-${VERSION}-win-x64.exe`;
+const LINUX_APPIMAGE_URL = `${RELEASE_BASE}/ccr-${VERSION}-linux-x86_64.AppImage`;
 
 const ONE_LINER = "curl -fsSL https://ccr-ebon.vercel.app/install.sh | bash";
 const FIX_CMD = "sudo xattr -cr /Applications/ccr.app";
@@ -89,25 +86,39 @@ export default function DownloadPage() {
             options={[
               {
                 label: "Installer",
-                hint: "v0.1.3 (Electron) — Tauri build coming soon",
-                size: "88 MB",
+                hint: "NSIS setup — pick install location",
+                size: "91 MB",
                 ext: "exe",
                 href: WIN_SETUP_URL,
                 primary: true,
               },
               {
                 label: "Portable",
-                hint: "v0.1.3 (Electron) — Tauri build coming soon",
-                size: "88 MB",
+                hint: "Single-file, no install needed",
+                size: "90 MB",
                 ext: "exe",
                 href: WIN_PORTABLE_URL,
+              },
+            ]}
+          />
+          <PackageCard
+            platform="Linux"
+            icon={<LinuxIcon />}
+            requirement="Most distros · x86_64"
+            options={[
+              {
+                label: "AppImage",
+                hint: "Download, chmod +x, double-click to run",
+                size: "85 MB",
+                ext: "AppImage",
+                href: LINUX_APPIMAGE_URL,
+                primary: true,
               },
             ]}
           />
         </div>
 
         <p className="sub-meta">
-          Linux AppImage on the way.{" "}
           <a href={RELEASE_URL} target="_blank" rel="noreferrer">
             Release notes ↗
           </a>
@@ -260,6 +271,21 @@ function WindowsIcon({ className }: { className?: string }) {
       className={className}
     >
       <path d="M2 4.83 11.42 3.5v8.93H2zm0 14.34L11.42 20.5v-8.93H2zm10.58 1.42L22 22V12.43h-9.42zm0-17.18V11.5H22V2z" />
+    </svg>
+  );
+}
+
+function LinuxIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M12.5 2c-1.94 0-3.4 1.62-3.4 3.6 0 .4.06.78.18 1.14-.5.31-.97.7-1.4 1.16-.6.66-1.05 1.4-1.34 2.18-.16.42-.27.86-.34 1.32-.07.46-.1.94-.1 1.42 0 .94.13 1.85.38 2.7L4.36 18.5c-.49.66-.42 1.59.16 2.18.59.58 1.51.66 2.18.18l1.96-1.4c.74.36 1.55.62 2.4.74.48.07.97.1 1.46.1.93 0 1.83-.13 2.66-.38l1.95 1.4c.66.48 1.59.41 2.18-.18.58-.59.65-1.52.16-2.18l-2.12-2.98c.25-.85.38-1.76.38-2.7 0-.48-.03-.96-.1-1.42-.07-.46-.18-.9-.34-1.32-.29-.78-.74-1.52-1.34-2.18-.43-.46-.9-.85-1.4-1.16.12-.36.18-.74.18-1.14 0-1.98-1.46-3.6-3.4-3.6zm-1.5 6.5c.55 0 1 .67 1 1.5s-.45 1.5-1 1.5-1-.67-1-1.5.45-1.5 1-1.5zm3 0c.55 0 1 .67 1 1.5s-.45 1.5-1 1.5-1-.67-1-1.5.45-1.5 1-1.5zm-1.5 4.5c1.1 0 2.1.4 2.7 1-.5.5-1.5 1-2.7 1s-2.2-.5-2.7-1c.6-.6 1.6-1 2.7-1z" />
     </svg>
   );
 }
