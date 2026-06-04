@@ -4,6 +4,8 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { createPatch } from "diff";
+import { SecurityError, assertCommandAllowed, assertPathAllowed } from "./security.js";
+import { GitSandbox, isGitWorkTree } from "./git-sandbox.js";
 
 const execAsync = promisify(exec);
 
@@ -69,6 +71,13 @@ export interface ToolContext {
   isSubagent?: boolean;
   /** Spawn a subagent. Set by cli.ts / app.tsx; absent inside subagents. */
   runSubagent?: SubagentRunner;
+  /**
+   * --yolo / bypass mode. When true, the bash tool brackets each command in a
+   * git checkpoint so a failure can be rolled back automatically (see
+   * git-sandbox.ts). The security guardrail (security.ts) applies regardless
+   * of this flag.
+   */
+  yolo?: boolean;
 }
 
 export interface ToolDef {
@@ -145,6 +154,7 @@ const readFileTool: ToolDef = {
   },
   async run(ctx, { path: target, offset = 0, limit = 2000 }) {
     const p = safePath(ctx.root, target);
+    assertPathAllowed(p, "read");
     if (!existsSync(p)) return `ERROR: file not found: ${p}`;
     const st = statSync(p);
     if (st.isDirectory()) return `ERROR: is a directory: ${p}`;
@@ -174,6 +184,7 @@ const writeFileTool: ToolDef = {
   },
   async run(ctx, { path: target, content }) {
     const p = safePath(ctx.root, target);
+    assertPathAllowed(p, "write");
     const existed = existsSync(p);
     const old = existed ? await readFileText(p) : "";
     const diff = unifiedDiff(old, content, path.relative(ctx.root, p) || p);
@@ -206,6 +217,7 @@ const editFileTool: ToolDef = {
   },
   async run(ctx, { path: target, old_string, new_string, replace_all = false }) {
     const p = safePath(ctx.root, target);
+    assertPathAllowed(p, "write");
     if (!existsSync(p)) return `ERROR: file not found: ${p}`;
     const text = await readFileText(p);
     if (!text.includes(old_string)) return "ERROR: old_string not found in file";
@@ -250,6 +262,7 @@ const multiEditTool: ToolDef = {
   },
   async run(ctx, { path: target, edits }) {
     const p = safePath(ctx.root, target);
+    assertPathAllowed(p, "write");
     if (!existsSync(p)) return `ERROR: file not found: ${p}`;
     const original = await readFileText(p);
     let cur = original;
@@ -290,6 +303,7 @@ const insertLinesTool: ToolDef = {
   },
   async run(ctx, { path: target, line, content }) {
     const p = safePath(ctx.root, target);
+    assertPathAllowed(p, "write");
     if (!existsSync(p)) return `ERROR: file not found: ${p}`;
     const text = await readFileText(p);
     const lines = text.split("\n");
@@ -386,6 +400,99 @@ const grepTool: ToolDef = {
   },
 };
 
+interface ShellResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  killed: boolean;
+  signal: string | null;
+  message?: string;
+}
+
+/** Run a shell command, normalizing success and failure (non-zero exit,
+ *  timeout) into a single structured result. Only truly unexpected runner
+ *  errors reject. */
+async function runShell(command: string, cwd: string, timeoutSec: number): Promise<ShellResult> {
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      cwd,
+      timeout: timeoutSec * 1000,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return { exitCode: 0, stdout: stdout ?? "", stderr: stderr ?? "", killed: false, signal: null };
+  } catch (err: any) {
+    return {
+      exitCode: typeof err?.code === "number" ? err.code : 1,
+      stdout: err?.stdout ?? "",
+      stderr: err?.stderr ?? "",
+      killed: !!err?.killed,
+      signal: err?.signal ?? null,
+      message: !err?.stdout && !err?.stderr ? err?.message : undefined,
+    };
+  }
+}
+
+function formatShellResult(r: ShellResult): string {
+  const parts = [`exit=${r.exitCode}`];
+  if (r.stdout) parts.push("--- stdout ---\n" + r.stdout);
+  if (r.stderr) parts.push("--- stderr ---\n" + r.stderr);
+  if (r.killed) parts.push(`(killed: ${r.signal ?? "timeout"})`);
+  if (r.message) parts.push(r.message);
+  return truncate(parts.join("\n"));
+}
+
+/**
+ * --yolo path: bracket the command in a git checkpoint. On success, keep the
+ * changes; on a non-zero exit, timeout, or runner error, hard-roll-back the
+ * working tree to the checkpoint so the failure is isolated. If we can't take
+ * a checkpoint (e.g. mid-merge), fall back to a raw run — the guardrail has
+ * already screened the command either way.
+ */
+async function runBashSandboxed(root: string, command: string, timeoutSec: number): Promise<string> {
+  let sandbox: GitSandbox;
+  try {
+    sandbox = await GitSandbox.checkpoint(root, Date.now());
+  } catch {
+    return formatShellResult(await runShell(command, root, timeoutSec));
+  }
+
+  let result: ShellResult;
+  try {
+    result = await runShell(command, root, timeoutSec);
+  } catch (e: any) {
+    await safeRestore(sandbox);
+    return truncate(
+      `exit=1\n[ccr-sandbox] command runner errored; rolled back working tree to ${sandbox.label}\n${e?.message ?? e}`,
+    );
+  }
+
+  if (result.exitCode !== 0 || result.killed) {
+    await safeRestore(sandbox);
+    const why = result.killed ? "timed out" : `exited ${result.exitCode}`;
+    return formatShellResult(result) +
+      `\n[ccr-sandbox] command ${why}; rolled back working tree to checkpoint ${sandbox.label}`;
+  }
+
+  await safeRelease(sandbox);
+  return formatShellResult(result);
+}
+
+async function safeRestore(s: GitSandbox): Promise<void> {
+  try {
+    await s.restore();
+  } catch {
+    /* best-effort — a git hiccup during teardown must not crash the loop */
+  }
+}
+
+async function safeRelease(s: GitSandbox): Promise<void> {
+  try {
+    await s.release();
+  } catch {
+    /* best-effort */
+  }
+}
+
 const bashTool: ToolDef = {
   name: "bash",
   description:
@@ -400,26 +507,21 @@ const bashTool: ToolDef = {
     required: ["command"],
   },
   async run(ctx, { command, timeout = 120 }) {
+    // Tier 1: hardcoded security guardrail. Screen the command BEFORE the
+    // approval prompt or any execution. Throws SecurityError on a breach;
+    // dispatch() re-throws it to kill the loop. Runs in every mode — a
+    // guardrail you can click "approve" past is not a guardrail.
+    assertCommandAllowed(command);
+
     const ok = await ctx.approve({ kind: "bash", title: "Run shell command", detail: `$ ${command}` });
     if (!ok) return "DENIED: user rejected the command.";
-    try {
-      const { stdout, stderr } = await execAsync(command, {
-        cwd: ctx.root,
-        timeout: timeout * 1000,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      const parts = ["exit=0"];
-      if (stdout) parts.push("--- stdout ---\n" + stdout);
-      if (stderr) parts.push("--- stderr ---\n" + stderr);
-      return truncate(parts.join("\n"));
-    } catch (err: any) {
-      const parts = [`exit=${err.code ?? 1}`];
-      if (err.stdout) parts.push("--- stdout ---\n" + err.stdout);
-      if (err.stderr) parts.push("--- stderr ---\n" + err.stderr);
-      if (err.killed) parts.push(`(killed: ${err.signal ?? "timeout"})`);
-      if (!err.stdout && !err.stderr && err.message) parts.push(err.message);
-      return truncate(parts.join("\n"));
+
+    // Tier 2: in --yolo/bypass, bracket execution in a git rollback sandbox so
+    // a failing autonomous command can't leave the tree in a broken state.
+    if (ctx.yolo && (await isGitWorkTree(ctx.root))) {
+      return runBashSandboxed(ctx.root, command, timeout);
     }
+    return formatShellResult(await runShell(command, ctx.root, timeout));
   },
 };
 
@@ -546,6 +648,10 @@ export async function dispatch(ctx: ToolContext, name: string, args: any): Promi
   try {
     return await tool.run(ctx, args ?? {});
   } catch (e: any) {
+    // A guardrail breach is never fed back to the model as a recoverable
+    // tool error — re-throw so it propagates out of the agent loop and stops
+    // the run immediately.
+    if (e instanceof SecurityError) throw e;
     return `ERROR: ${e?.name ?? "Error"}: ${e?.message ?? String(e)}`;
   }
 }
