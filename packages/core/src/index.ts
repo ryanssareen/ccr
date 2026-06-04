@@ -27,6 +27,12 @@ export type {
   AgentRun,
 } from "./agent.js";
 
+// ─── security guardrail ─────────────────────────────────────────────────────
+// Tier 1 client-side interceptor. SecurityError is exported so the CLI can
+// recognize a guardrail breach and report it distinctly. The screening
+// functions and the git sandbox stay internal to @ccr/core.
+export { SecurityError } from "./security.js";
+
 // ─── tools / agent context ──────────────────────────────────────────────────
 export { TOOLS, TOOL_BY_NAME, toolSchemas, dispatch } from "./tools.js";
 export type {

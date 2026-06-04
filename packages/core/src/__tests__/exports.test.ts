@@ -19,6 +19,8 @@ const EXPECTED_RUNTIME = [
   "initialMessages",
   "runAgent",
   "makeSubagentRunner",
+  // security guardrail
+  "SecurityError",
   // tools / agent context
   "TOOLS",
   "TOOL_BY_NAME",

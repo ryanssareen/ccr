@@ -661,6 +661,9 @@ export function makeSubagentRunner(
       approve: parentCtx.approve,
       ask: parentCtx.ask,
       isSubagent: true,
+      // Inherit the parent's --yolo flag so subagent bash commands are
+      // checkpoint-sandboxed too. (The guardrail applies unconditionally.)
+      yolo: parentCtx.yolo,
       // runSubagent is intentionally absent: enforced by step() schema filter,
       // and double-checked by the spawn_agent tool itself.
     };

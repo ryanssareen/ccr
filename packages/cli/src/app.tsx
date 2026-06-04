@@ -12,6 +12,7 @@ import {
   newSessionId,
   VERSION,
   checkForUpdate,
+  SecurityError,
   type AgentRun,
   type QuotaState,
   type Reporter,
@@ -31,7 +32,7 @@ export type Mode = "ask" | "accept-edits" | "bypass";
 const MODE_LABEL: Record<Mode, string> = {
   ask: "ask for every edit + bash (safest)",
   "accept-edits": "auto-accept file edits, ask for bash",
-  bypass: "auto-approve everything (yolo)",
+  bypass: "auto-approve everything (yolo) — guardrail + git rollback still apply",
 };
 
 interface ToolEntry {
@@ -768,7 +769,12 @@ export function App(props: AppProps) {
       abortRef.current = ac;
 
       const client = props.buildClient(setQuotaState);
-      const ctx: ToolContext = { root: props.root, approve, ask };
+      const ctx: ToolContext = {
+        root: props.root,
+        approve,
+        ask,
+        yolo: modeRef.current === "bypass",
+      };
       ctx.runSubagent = makeSubagentRunner(client, ctx, model, reporter);
       const run: AgentRun = {
         client,
@@ -780,7 +786,13 @@ export function App(props: AppProps) {
       try {
         await runAgent(run, apiMessagesRef.current);
       } catch (e: any) {
-        if (e?.message === "aborted" || ac.signal.aborted) {
+        if (e instanceof SecurityError) {
+          pushEntry({
+            kind: "system",
+            text: `⛔ security guardrail tripped — agent loop stopped\n${e.message}`,
+            tone: "error",
+          });
+        } else if (e?.message === "aborted" || ac.signal.aborted) {
           pushEntry({ kind: "system", text: "interrupted", tone: "warn" });
         } else {
           pushEntry({ kind: "system", text: `error: ${e?.message ?? e}`, tone: "error" });

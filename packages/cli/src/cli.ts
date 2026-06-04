@@ -22,6 +22,7 @@ import {
   loadConfig,
   VERSION,
   checkForUpdate,
+  SecurityError,
   type AgentRun,
   type BuildClientOptions,
   type QuotaState,
@@ -212,6 +213,9 @@ Options:
   --mode MODE              Permission mode: ask | accept-edits | bypass.
   --accept-edits           Auto-approve file edits, ask for shell commands.
   --yolo, --bypass         Auto-approve everything (alias for --mode bypass).
+                           A hardcoded security guardrail still blocks dangerous
+                           commands, and each shell command runs in a git
+                           checkpoint that auto-rolls-back on failure.
   --model NAME             Override model (default: ${DEFAULT_MODEL}).
   --cwd DIR                Project root (default: cwd).
   --terminal               Use terminal email/password login flow.
@@ -389,6 +393,7 @@ async function runOneShot(args: Args, root: string, auth: CcrAuth | null): Promi
     root,
     approve: consoleApprover(args.mode, rl),
     ask: consoleAsker(rl),
+    yolo: args.mode === "bypass",
   };
   ctx.runSubagent = makeSubagentRunner(client, ctx, args.model, reporter);
   const run: AgentRun = { client, model: args.model, ctx, reporter };
@@ -399,7 +404,12 @@ async function runOneShot(args: Args, root: string, auth: CcrAuth | null): Promi
     try {
       await runAgent(run, messages);
     } catch (e: any) {
-      console.error(kleur.red(`error: ${e?.message ?? e}`));
+      if (e instanceof SecurityError) {
+        console.error(kleur.red().bold(`\n⛔ security guardrail tripped — agent loop stopped`));
+        console.error(kleur.red(`   ${e.message}`));
+      } else {
+        console.error(kleur.red(`error: ${e?.message ?? e}`));
+      }
     }
     await saveSession(root, sessionId, messages);
   }
