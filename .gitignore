@@ -1,10 +1,18 @@
 node_modules
 dist
+# Secrets / local env — ignore EVERY .env variant (.env, .env.local,
+# .env.production.local, future credential files, …), keep only templates.
 .env
-.env.local
+.env.*
+!.env.example
+!.env.sample
+!.env.template
 *.log
 .DS_Store
 .vercel
 tsconfig.tsbuildinfo
 # README in cli is copied from root at publish-time (see prepublishOnly)
 packages/cli/README.md
+# Electron build/distribution artifacts
+packages/electron/out/
+packages/electron/release/
