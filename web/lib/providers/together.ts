@@ -2,6 +2,7 @@ import {
   buildChatPayload,
   readErrorBody,
   resolveFirebaseParam,
+  resolveModelForProvider,
   type ChatRequest,
   type ChatResponse,
   type Provider,
@@ -24,6 +25,14 @@ export class TogetherProvider implements Provider {
   }
 
   async chatCompletion(req: ChatRequest): Promise<ChatResponse> {
+    const model = resolveModelForProvider(this.name, req.model);
+    if (model === null) {
+      throw new UpstreamProviderError(this.name, undefined, `${req.model} is not available on Together AI.`, undefined, {
+        retryable: true,
+        markUnhealthy: false,
+      });
+    }
+
     const apiKey = await this.apiKeyResolver(TOGETHER_API_KEY_PARAM);
     const startedAt = Date.now();
 
@@ -35,7 +44,7 @@ export class TogetherProvider implements Provider {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(buildChatPayload(req)),
+        body: JSON.stringify(buildChatPayload({ ...req, model })),
       });
     } catch (error) {
       throw new UpstreamProviderError(

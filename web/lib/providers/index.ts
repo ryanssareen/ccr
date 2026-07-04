@@ -5,6 +5,7 @@ import { TogetherProvider } from './together';
 import {
   loadOptionalModule,
   ProviderUnavailableError,
+  resolveModelForProvider,
   type ChatRequest,
   type ChatResponse,
   type Provider,
@@ -100,7 +101,7 @@ export class ProviderRouter implements Router {
     const failures: string[] = [];
 
     while (attempted.size < this.providers.length) {
-      const candidates = await this.getHealthyProviders(attempted);
+      const candidates = await this.getHealthyProviders(attempted, req.model);
       if (candidates.length === 0) {
         break;
       }
@@ -130,11 +131,18 @@ export class ProviderRouter implements Router {
     );
   }
 
-  private async getHealthyProviders(excluded: Set<ProviderName>): Promise<Provider[]> {
+  private async getHealthyProviders(excluded: Set<ProviderName>, model: string): Promise<Provider[]> {
     const healthyProviders: Provider[] = [];
 
     for (const provider of this.providers) {
       if (excluded.has(provider.name)) {
+        continue;
+      }
+
+      // Providers with no equivalent for this model can't serve the
+      // request at all — exclude them instead of burning an attempt on a
+      // guaranteed 4xx.
+      if (resolveModelForProvider(provider.name, model) === null) {
         continue;
       }
 

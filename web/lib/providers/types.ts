@@ -28,6 +28,53 @@ export type ProviderName = Provider['name'];
 export type FetchLike = typeof fetch;
 export type ApiKeyResolver = (paramName: string) => Promise<string>;
 
+// Each provider hosts models under its own catalog IDs — the same model
+// forwarded verbatim to every provider only ever works on the one whose
+// naming happened to match, so the rest reject it with a 4xx and the
+// request silently falls back to the next candidate. If the lucky provider
+// is also cooling down, every provider fails and the router reports "all
+// providers unavailable" even though the model — not provider health — was
+// the actual problem. This table translates our canonical (Groq) model IDs
+// into each provider's equivalent, so all providers are genuinely usable in
+// the rotation. `null` means the provider has no equivalent model (verified
+// against provider docs as of 2026-07); the router excludes it for that
+// model instead of wasting a request on a guaranteed 404. Models not listed
+// here (e.g. a custom CCR_MODEL override) pass through unchanged, same as
+// before this table existed.
+const MODEL_ALIASES: Record<string, Partial<Record<ProviderName, string | null>>> = {
+  'openai/gpt-oss-120b': {
+    groq: 'openai/gpt-oss-120b',
+    cerebras: 'gpt-oss-120b',
+    together: 'openai/gpt-oss-120b',
+    openrouter: 'openai/gpt-oss-120b',
+  },
+  'llama-3.3-70b-versatile': {
+    groq: 'llama-3.3-70b-versatile',
+    cerebras: null, // deprecated on Cerebras Feb 2026, no replacement in their catalog
+    together: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    openrouter: 'meta-llama/llama-3.3-70b-instruct',
+  },
+  'moonshotai/kimi-k2-instruct': {
+    groq: 'moonshotai/kimi-k2-instruct',
+    cerebras: null, // never offered on Cerebras
+    together: null, // superseded upstream by versioned Kimi-K2.6/K2.7 IDs; no stable 1:1 match
+    openrouter: 'moonshotai/kimi-k2',
+  },
+};
+
+/**
+ * Returns the model ID to send to `providerName` for the given canonical
+ * model, or `null` if that provider has no equivalent and should be skipped
+ * for this request. Unrecognized models pass through unchanged.
+ */
+export function resolveModelForProvider(providerName: ProviderName, model: string): string | null {
+  const entry = MODEL_ALIASES[model];
+  if (!entry || !(providerName in entry)) {
+    return model;
+  }
+  return entry[providerName] ?? null;
+}
+
 export interface ProviderClientOptions {
   fetch?: FetchLike;
   apiKeyResolver?: ApiKeyResolver;
