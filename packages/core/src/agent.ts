@@ -205,6 +205,16 @@ function isRateLimitError(err: any): boolean {
   );
 }
 
+// The managed-mode proxy returns 503 when every upstream provider it tried
+// failed (see web/lib/providers — ProviderUnavailableError). It sends a
+// Retry-After header the same way a 429 does, so this reuses the rate-limit
+// backoff loop rather than failing the turn outright on what's often a
+// transient window (one provider cooling down while a request lands on it).
+function isProviderUnavailableError(err: any): boolean {
+  const status = err?.status ?? err?.response?.status;
+  return status === 503;
+}
+
 function parseRetryAfterSeconds(err: any): number {
   // Try header first.
   const hdrs = err?.headers ?? err?.response?.headers;
@@ -248,9 +258,10 @@ async function sleepWithCountdown(
   seconds: number,
   reporter: Reporter,
   signal?: AbortSignal,
+  reason: string = "rate-limited",
 ): Promise<void> {
   for (let s = seconds; s > 0; s--) {
-    reporter.setStatus?.(`⏱ rate-limited; retrying in ${s}s (Ctrl-C to cancel)`);
+    reporter.setStatus?.(`⏱ ${reason}; retrying in ${s}s (Ctrl-C to cancel)`);
     await new Promise<void>((resolve, reject) => {
       const onAbort = () => {
         clearTimeout(t);
@@ -542,25 +553,35 @@ async function runAgentInner(run: AgentRun, messages: any[]): Promise<void> {
           forceAutoTools = true;
           continue;
         }
-        if (isRateLimitError(e)) {
+        if (isRateLimitError(e) || isProviderUnavailableError(e)) {
           dropOrphanAssistantToolCalls(messages);
+          const providerOutage = isProviderUnavailableError(e);
           if (isUnrecoverableSize(e) || rateLimitRetries >= MAX_RATE_LIMIT_RETRIES) {
             run.reporter.setStatus?.(null);
             run.reporter.assistantTurnEnd(
               isUnrecoverableSize(e)
                 ? "Request is too large to fit in a single per-minute window even after waiting. Try /clear, switch to a higher-limit model with /model, or trim CLAUDE.md."
-                : `Still rate-limited after ${MAX_RATE_LIMIT_RETRIES} retries. Try /clear or /model to switch to a model with a higher TPM cap.`,
+                : providerOutage
+                  ? `All providers are still unavailable after ${MAX_RATE_LIMIT_RETRIES} retries. Try again shortly.`
+                  : `Still rate-limited after ${MAX_RATE_LIMIT_RETRIES} retries. Try /clear or /model to switch to a model with a higher TPM cap.`,
             );
             return;
           }
           rateLimitRetries++;
           const wait = Math.min(parseRetryAfterSeconds(e) + 2, MAX_RETRY_WAIT_SECONDS);
           try {
-            await sleepWithCountdown(wait, run.reporter, run.signal);
+            await sleepWithCountdown(
+              wait,
+              run.reporter,
+              run.signal,
+              providerOutage ? "providers unavailable" : "rate-limited",
+            );
           } catch {
             // aborted
             run.reporter.setStatus?.(null);
-            run.reporter.assistantTurnEnd("interrupted while waiting on rate limit");
+            run.reporter.assistantTurnEnd(
+              providerOutage ? "interrupted while waiting for providers to recover" : "interrupted while waiting on rate limit",
+            );
             return;
           }
           continue;

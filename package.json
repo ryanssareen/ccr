@@ -1,6 +1,9 @@
 {
-  "name": "ccr-monorepo",
-  "version": "0.0.0",
+  "name": "ryanisavibecoder/ccr",
+  "version": "1.0.0",
+  "bin": {
+    "ccr": "./index.js"
+  },
   "description": "CCR monorepo — terminal CLI, shared core, and (forthcoming) Electron desktop app.",
   "license": "MIT",
   "private": true,
