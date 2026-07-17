@@ -41,6 +41,9 @@ jobs:
 
       - name: Build installers
         working-directory: packages/electron
+        # bash on all three runners (Windows included) so the guard below is
+        # one script rather than a per-OS fork.
+        shell: bash
         env:
           # When you have a code-signing cert, drop the base64-encoded p12
           # into CSC_LINK (data: URL or path) and the password into
@@ -54,7 +57,17 @@ jobs:
         # by hand. Publishing is the `release` job's business, not the
         # builder's; GH_TOKEN is deliberately not passed here so it cannot
         # re-enable the behaviour.
-        run: npm run dist:${{ matrix.target }} -- --publish never
+        run: |
+          # An undefined secret arrives as an EMPTY STRING, not as unset. An
+          # empty CSC_LINK reads to electron-builder as "a cert path was
+          # supplied", which it resolves to the cwd and rejects with
+          # "<projectDir> not a file" — macOS-only; win/linux ignore it.
+          # Clear them so an unsigned build stays unsigned instead of failing.
+          if [ -z "$CSC_LINK" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          npm run dist:${{ matrix.target }} -- --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
