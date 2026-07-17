@@ -23,6 +23,9 @@ export function App() {
   const indexed = useSessionStore((s) => s.indexed);
   const activeSessionPath = useSessionStore((s) => s.activeSessionPath);
   const defaultProjectRoot = useSessionStore((s) => s.bootstrapDefaultProjectRoot);
+  const needsProjectRootChoice = useSessionStore((s) => s.needsProjectRootChoice);
+  const pickProjectRoot = useSessionStore((s) => s.pickProjectRoot);
+  const dismissProjectRootPrompt = useSessionStore((s) => s.dismissProjectRootPrompt);
   const defaultModel = useSessionStore((s) => s.bootstrapDefaultModel);
   const firebaseConfig = useSessionStore((s) => s.firebaseConfig);
   const setQuota = useSessionStore((s) => s.setQuota);
@@ -92,6 +95,13 @@ export function App() {
   const handleNewSession = async (projectRoot: string) => {
     const { sessionPath } = await ccrIpcClient.createSession({ projectRoot });
     await selectSessionPath(sessionPath);
+  };
+
+  // A rejected pick is worth surfacing (the user chose something unusable and
+  // would otherwise see nothing happen); a cancel is not.
+  const handlePickProjectRoot = async () => {
+    const result = await pickProjectRoot();
+    if (!result.ok && !result.canceled) window.alert(result.error);
   };
 
   const slashActions = useMemo(
@@ -231,7 +241,16 @@ export function App() {
           if (!r.ok) window.alert(r.error ?? "Delete failed.");
         }}
         defaultProjectRoot={defaultProjectRoot}
+        onPickProjectRoot={handlePickProjectRoot}
       />
+
+      {needsProjectRootChoice && (
+        <ProjectRootPrompt
+          currentRoot={defaultProjectRoot}
+          onChoose={handlePickProjectRoot}
+          onDismiss={dismissProjectRootPrompt}
+        />
+      )}
 
       <ChatStage
         mode={mode}
@@ -281,6 +300,119 @@ export function App() {
           setMode(m);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * First-run project-folder prompt (issue #21).
+ *
+ * Only the packaged app reaches this: a Finder launch has no meaningful cwd,
+ * so the root falls back to $HOME — safe, but nobody's project. Rather than
+ * silently rooting the agent's file tools at the home folder, ask once.
+ *
+ * Dismissable, not modal-locked: $HOME is a legitimate answer, and the rail's
+ * "Change" button is always there for later.
+ */
+function ProjectRootPrompt(props: {
+  currentRoot: string;
+  onChoose: () => Promise<void> | void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose a project folder"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 60,
+      }}
+    >
+      <div
+        style={{
+          width: 460,
+          maxWidth: "calc(100vw - 48px)",
+          background: theme.bgAlt,
+          border: `1px solid ${theme.borderSoft}`,
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: "0 18px 48px rgba(0,0,0,0.45)",
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: theme.text }}>
+          Choose a project folder
+        </h2>
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: 13,
+            lineHeight: 1.55,
+            color: theme.textDim,
+          }}
+        >
+          ccr needs to know which folder to work in. Until you pick one, new
+          sessions run in your home folder:
+        </p>
+        <div
+          style={{
+            margin: "10px 0 18px",
+            padding: "7px 10px",
+            borderRadius: 6,
+            background: theme.bg,
+            border: `1px solid ${theme.borderSoft}`,
+            color: theme.textMute,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11.5,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={props.currentRoot}
+        >
+          {props.currentRoot}
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={props.onDismiss}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 7,
+              border: `1px solid ${theme.borderSoft}`,
+              background: "transparent",
+              color: theme.textMute,
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          >
+            Not now
+          </button>
+          <button
+            type="button"
+            onClick={() => void props.onChoose()}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 7,
+              border: `1px solid ${theme.clay}`,
+              background: theme.clay,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: "inherit",
+            }}
+          >
+            Choose folder…
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

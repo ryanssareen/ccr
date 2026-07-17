@@ -112,17 +112,30 @@ app.whenReady().then(async () => {
   // cwd = "/", which would root every session — and the agent's file tools —
   // at the filesystem root. See ./project-root.ts for the ordering.
   const bootConfig = await loadConfig();
-  const projectRoot = resolveProjectRoot({
+  // Mutable, deliberately: the user can pick a project folder at runtime
+  // (issue #21) and that must take effect without a restart. This is the one
+  // authoritative copy of the current root — everything downstream reads it
+  // through a getter rather than receiving a snapshot, so there is no second
+  // copy to fall out of sync.
+  let projectRoot = resolveProjectRoot({
     cwd: process.cwd(),
     isPackaged: app.isPackaged,
     configuredRoot: bootConfig.projectRoot,
     homeDir: app.getPath("home"),
   });
+  const currentProjectRoot = () => projectRoot;
   console.log(`[ccr] project root: ${projectRoot}`);
-  const host = new AgentHost({ projectRoot });
+  // A getter, not `projectRoot` — AgentHost would otherwise keep running the
+  // agent's file tools against the boot-time root after a pick.
+  const host = new AgentHost({ projectRoot: currentProjectRoot });
 
   disposeIpcHandlers = registerIpcHandlers(ipcMain, host, {
-    defaultProjectRoot: () => projectRoot,
+    defaultProjectRoot: currentProjectRoot,
+    setDefaultProjectRoot: (root) => {
+      projectRoot = root;
+      console.log(`[ccr] project root changed: ${root}`);
+    },
+    isPackaged: () => app.isPackaged,
     loadConfigOnce: () => loadConfig(),
     firebaseConfig: resolveFirebaseConfig,
     authEndpoint: () => process.env.CCR_ENDPOINT ?? "https://ccr-ebon.vercel.app",

@@ -115,7 +115,16 @@ export interface AgentHostDeps {
 }
 
 export interface AgentHostOptions {
-  projectRoot?: string;
+  /**
+   * The root runs default to when the renderer doesn't supply one.
+   *
+   * Pass a function to keep it live: the app's root can change at runtime when
+   * the user picks a project folder (issue #21), and a value captured at
+   * construction would leave every subsequent run pointed at the old root —
+   * silently, since the rail would already be showing the new one. A plain
+   * string is still accepted for callers whose root genuinely is fixed (tests).
+   */
+  projectRoot?: string | (() => string);
   deps?: Partial<AgentHostDeps>;
 }
 
@@ -135,7 +144,7 @@ const DEFAULT_DEPS: AgentHostDeps = {
 };
 
 export class AgentHost {
-  private readonly projectRoot: string;
+  private readonly readProjectRoot: () => string;
   private readonly deps: AgentHostDeps;
   private readonly runs = new Map<string, ActiveRun>();
   private readonly approvals = new Map<string, PendingApproval>();
@@ -145,8 +154,19 @@ export class AgentHost {
   constructor(options: AgentHostOptions = {}) {
     // process.cwd() is only a last resort here, and is itself sanitized: a
     // packaged app's cwd is "/" (issue #19).
-    this.projectRoot = sanitizeProjectRoot(options.projectRoot ?? process.cwd(), os.homedir());
+    const source = options.projectRoot ?? process.cwd();
+    const read = typeof source === "function" ? source : () => source;
+    // Sanitize on every read, not once at construction: a live root arrives
+    // from a getter, so there is no single moment at which to vet it.
+    // sanitizeProjectRoot is a structural check with no fs access, so this is
+    // cheap enough to sit on the start path.
+    this.readProjectRoot = () => sanitizeProjectRoot(read(), os.homedir());
     this.deps = { ...DEFAULT_DEPS, ...options.deps };
+  }
+
+  /** The current default root. Re-read per access — never cached. */
+  private get projectRoot(): string {
+    return this.readProjectRoot();
   }
 
   async start(sender: RendererSender, input: AgentStartInput): Promise<AgentStartResult> {
@@ -167,9 +187,13 @@ export class AgentHost {
     // location on disk, so rewriting it would strand an existing conversation
     // under a different hash. Resuming a legacy "/"-rooted session therefore
     // still finds its history — it just doesn't get to run tools at "/".
+    // Snapshot once per start so both roots below agree, then stay fixed for
+    // the lifetime of this run — a pick mid-run must not move a live agent's
+    // feet. The next start picks up the new root.
+    const hostRoot = this.projectRoot;
     const roots: RunRoots = {
-      session: input.projectRoot ? path.resolve(input.projectRoot) : this.projectRoot,
-      operating: sanitizeProjectRoot(input.projectRoot ?? this.projectRoot, this.projectRoot),
+      session: input.projectRoot ? path.resolve(input.projectRoot) : hostRoot,
+      operating: sanitizeProjectRoot(input.projectRoot ?? hostRoot, hostRoot),
     };
     const sessionFilePath = this.deps.sessionPath(roots.session, sessionId);
     await fs.mkdir(path.dirname(sessionFilePath), { recursive: true });

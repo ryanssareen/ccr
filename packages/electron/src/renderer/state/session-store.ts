@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { QuotaState, SessionEvent } from "@ccr/core";
 import type { CcrAuth, CcrConfig } from "@ccr/core";
+import type { ProjectRootPickResult } from "../../common/ipc.js";
 import { ccrIpcClient, type ListedSession } from "../ipc-client.js";
 import { useRunStore } from "./run-store.js";
 
@@ -89,7 +90,17 @@ type DebTimers = Map<string, ReturnType<typeof setTimeout>>;
 const PATCH_DEBOUNCE_MS = 140;
 
 interface SessionSlice {
+  /**
+   * The root new sessions default to. Seeded by bootstrap, then kept in step
+   * with main's live root by pickProjectRoot() — a pick must not need a
+   * restart to show up here (issue #21).
+   */
   bootstrapDefaultProjectRoot: string;
+  /**
+   * True when the packaged app is running on a $HOME fallback the user never
+   * chose. Drives the first-run prompt; cleared once they answer either way.
+   */
+  needsProjectRootChoice: boolean;
   /** @ccr/core's DEFAULT_MODEL, forwarded over IPC (the renderer can't import core). */
   bootstrapDefaultModel: string;
   auth: CcrAuth | null;
@@ -117,6 +128,10 @@ interface SessionSlice {
   setQuota: (q: QuotaState | null) => void;
 
   hydrateBootstrap: () => Promise<void>;
+  /** Opens the native folder picker; main validates, persists, and goes live. */
+  pickProjectRoot: () => Promise<ProjectRootPickResult>;
+  /** Dismiss the first-run prompt without picking — $HOME stays the root. */
+  dismissProjectRootPrompt: () => void;
   refreshIndex: () => Promise<void>;
   selectSessionPath: (p: string) => Promise<void>;
   patchLocalIndexed: (row: ListedSession) => void;
@@ -145,6 +160,7 @@ function normalizePath(p: string): string {
 
 export const useSessionStore = create<SessionSlice>((set, get) => ({
   bootstrapDefaultProjectRoot: "",
+  needsProjectRootChoice: false,
   bootstrapDefaultModel: "",
   auth: null,
   config: null,
@@ -168,12 +184,29 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
       auth: payload.auth,
       config: payload.config ?? {},
       bootstrapDefaultProjectRoot: payload.defaultProjectRoot,
+      needsProjectRootChoice: payload.needsProjectRootChoice ?? false,
       bootstrapDefaultModel: payload.defaultModel ?? "",
       firebaseConfig: payload.firebaseConfig ?? null,
       authEndpoint: payload.authEndpoint ?? "",
     });
     await get().refreshIndex();
   },
+
+  pickProjectRoot: async () => {
+    const result = await ccrIpcClient.pickProjectRoot();
+    // Only a successful pick moves anything. A cancel leaves the root, the
+    // config, and the prompt exactly as they were.
+    if (result.ok) {
+      set((state) => ({
+        bootstrapDefaultProjectRoot: result.projectRoot,
+        config: { ...(state.config ?? {}), projectRoot: result.projectRoot },
+        needsProjectRootChoice: false,
+      }));
+    }
+    return result;
+  },
+
+  dismissProjectRootPrompt: () => set({ needsProjectRootChoice: false }),
 
   refreshIndex: async () => {
     const { sessions } = await ccrIpcClient.listSessions();

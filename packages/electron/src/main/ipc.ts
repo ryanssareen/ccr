@@ -42,6 +42,7 @@ import {
   type ListedSession,
   type MainToRendererChannel,
   type MainToRendererPayloads,
+  type ProjectRootPickResult,
   type SessionsCreateInput,
   type SessionsCreateResult,
   type SessionsDeleteResult,
@@ -51,7 +52,7 @@ import {
   type SettingsSaveInput,
 } from "../common/ipc.js";
 import { AgentHost } from "./agent-host.js";
-import { sanitizeProjectRoot } from "./project-root.js";
+import { isUsableProjectRoot, sanitizeProjectRoot } from "./project-root.js";
 
 export interface IpcMainLike {
   handle(
@@ -147,8 +148,30 @@ async function buildSessionLoad(sessionPathAbs: string): Promise<SessionsLoadRes
 }
 
 export interface RegisterIpcOptions {
-  /** Returns the resolved project root used when creating sessions without one. */
+  /**
+   * Returns the resolved project root used when creating sessions without one.
+   *
+   * Called per request, never captured: a project-root pick has to take effect
+   * without a restart (issue #21), so this must read the app's *current* root
+   * rather than one snapshotted at `app.whenReady()`.
+   */
   defaultProjectRoot: () => string;
+  /**
+   * Publishes a newly picked root back to the app, making it the value
+   * `defaultProjectRoot()` subsequently returns. The counterpart of the getter
+   * above — together they are the live-update seam.
+   */
+  setDefaultProjectRoot: (root: string) => void;
+  /** `app.isPackaged`. Drives the first-run project-root prompt. */
+  isPackaged: () => boolean;
+  /**
+   * Opens the OS directory picker, resolving to the chosen path or null when
+   * the user cancels. Injected in tests; defaults to Electron's dialog, which
+   * is loaded lazily so this module stays importable outside Electron.
+   */
+  pickDirectory?: () => Promise<string | null>;
+  /** Persists config. Injected in tests so they never touch ~/.ccr/config.json. */
+  saveConfig?: (config: import("@ccr/core").CcrConfig) => Promise<void>;
   /** Where renderer settings:save calls should land. */
   loadConfigOnce: () => Promise<import("@ccr/core").CcrConfig>;
   /** Public Firebase config used by the renderer login flow. */
@@ -168,6 +191,29 @@ const DEFAULT_FILE_READ_BYTES = 64 * 1024;
 const MAX_FILE_READ_BYTES = 256 * 1024;
 
 /**
+ * Electron's native directory picker.
+ *
+ * `electron` is imported lazily rather than at module scope so this file stays
+ * importable from `node --test` (the main-process test runner), where the
+ * electron module cannot be required. Nothing but this function needs it.
+ */
+async function showDirectoryPicker(): Promise<string | null> {
+  const { BrowserWindow, dialog } = await import("electron");
+  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  const opts = {
+    title: "Choose project folder",
+    buttonLabel: "Use this folder",
+    properties: ["openDirectory" as const, "createDirectory" as const],
+  };
+  // Sheet-attached on macOS when a window exists; standalone otherwise.
+  const result = parent
+    ? await dialog.showOpenDialog(parent, opts)
+    : await dialog.showOpenDialog(opts);
+  if (result.canceled) return null;
+  return result.filePaths[0] ?? null;
+}
+
+/**
  * Registers all renderer↔main handlers. Returns a dispose function the app
  * lifecycle should call on `will-quit`.
  */
@@ -176,17 +222,34 @@ export function registerIpcHandlers(
   host: AgentHost,
   options: RegisterIpcOptions,
 ): () => void {
+  const persistConfig = options.saveConfig ?? saveConfig;
+  const pickDirectory = options.pickDirectory ?? showDirectoryPicker;
+
+  /**
+   * The one write path to ~/.ccr/config.json. Read-modify-write against the
+   * config on disk so a partial patch never drops sibling fields.
+   */
+  const persistConfigPatch = async (patch: SettingsSaveInput): Promise<void> => {
+    const current = await options.loadConfigOnce();
+    await persistConfig({ ...current, ...patch });
+  };
+
   // ─── bootstrap ────────────────────────────────────────────────────────────
   ipcMain.handle(CHANNELS.bootstrap, async () => {
-    const [{ loadAuth }, { loadConfig, DEFAULT_MODEL }] = await Promise.all([
-      import("@ccr/core"),
-      import("@ccr/core"),
-    ]);
-    const [auth, config] = await Promise.all([loadAuth(), loadConfig()]);
+    const { loadAuth, DEFAULT_MODEL } = await import("@ccr/core");
+    // options.loadConfigOnce rather than a second loadConfig import: one
+    // reader keeps bootstrap and the config write path pointed at the same
+    // config, and lets tests supply one without touching ~/.ccr.
+    const [auth, config] = await Promise.all([loadAuth(), options.loadConfigOnce()]);
     return {
       auth,
       config: config ?? {},
       defaultProjectRoot: options.defaultProjectRoot(),
+      // Same predicate resolveProjectRoot() uses to decide whether to honour
+      // the configured root — so "we prompted" and "the root is a fallback"
+      // can't drift apart.
+      needsProjectRootChoice:
+        options.isPackaged() && !isUsableProjectRoot(config?.projectRoot),
       defaultModel: DEFAULT_MODEL,
       firebaseConfig: options.firebaseConfig(),
       authEndpoint: options.authEndpoint(),
@@ -285,10 +348,47 @@ export function registerIpcHandlers(
 
   // ─── settings ─────────────────────────────────────────────────────────────
   ipcMain.handle(CHANNELS.settingsSave, async (_event, payload) => {
-    const incoming = (payload as SettingsSaveInput) ?? {};
-    const current = await options.loadConfigOnce();
-    await saveConfig({ ...current, ...incoming });
+    await persistConfigPatch((payload as SettingsSaveInput) ?? {});
     void configPath; // suppress unused-import warning if added later
+  });
+
+  // ─── project root picker (issue #21) ──────────────────────────────────────
+  //
+  // Everything happens here rather than in the renderer: the dialog is
+  // main-only, the validator is main-only, and the live root lives in main.
+  // Splitting it would mean trusting a renderer-supplied path.
+  ipcMain.handle(CHANNELS.dialogPickProjectRoot, async (): Promise<ProjectRootPickResult> => {
+    let picked: string | null;
+    try {
+      picked = await pickDirectory();
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    // Cancel is not an error, and must change nothing — no config write, no
+    // root change.
+    if (!picked) return { ok: false, canceled: true };
+
+    // The dialog is not trusted: "openDirectory" does not stop a user from
+    // selecting "/", which is precisely the root issue #19 exists to reject.
+    // Same predicate resolveProjectRoot() gates the configured root on, so a
+    // pick that persists is a pick that will actually be honoured on restart.
+    if (!isUsableProjectRoot(picked)) {
+      return {
+        ok: false,
+        error: `"${picked}" is not a usable project folder. Choose a real directory — not the filesystem root.`,
+      };
+    }
+
+    const projectRoot = path.resolve(picked);
+    try {
+      await persistConfigPatch({ projectRoot });
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    // Publish only after the write succeeds, so the live root and the
+    // persisted root cannot disagree.
+    options.setDefaultProjectRoot(projectRoot);
+    return { ok: true, projectRoot };
   });
 
   // ─── auth (in-app login) ──────────────────────────────────────────────────
@@ -381,6 +481,7 @@ export function registerIpcHandlers(
       CHANNELS.sessionsDelete,
       CHANNELS.sessionsTakeoverLock,
       CHANNELS.settingsSave,
+      CHANNELS.dialogPickProjectRoot,
       CHANNELS.authSave,
       CHANNELS.authClear,
       CHANNELS.fileRead,

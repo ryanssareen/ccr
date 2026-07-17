@@ -42,6 +42,10 @@ export const CHANNELS = {
   // settings
   settingsSave: "settings:save",
 
+  // dialogs (main-only — Electron's dialog module is not reachable from the
+  // renderer bundle, so the picker has to round-trip through main)
+  dialogPickProjectRoot: "dialog:pick-project-root",
+
   // auth (in-app login)
   authSave: "auth:save",
   authClear: "auth:clear",
@@ -56,6 +60,15 @@ export interface BootstrapPayload {
   auth: CcrAuth | null;
   config: CcrConfig;
   defaultProjectRoot: string;
+  /**
+   * True when the app is packaged *and* no usable `projectRoot` is pinned in
+   * config — i.e. `defaultProjectRoot` is the $HOME fallback the user never
+   * chose (issue #21). The renderer uses this to prompt on first run rather
+   * than silently rooting a Finder-launched app at the home folder.
+   *
+   * False in dev: `cwd` is the repo, which is the root a developer wants.
+   */
+  needsProjectRootChoice: boolean;
   /**
    * `@ccr/core`'s DEFAULT_MODEL, forwarded from main. The renderer can't
    * import core directly (it pulls in node-only session/agent modules that
@@ -248,6 +261,21 @@ export type SessionsDeleteResult =
 
 export type SettingsSaveInput = Partial<CcrConfig>;
 
+// ─── Project root picker ────────────────────────────────────────────────────
+
+/**
+ * Outcome of `dialog:pick-project-root`.
+ *
+ * The three cases are kept distinct because the renderer treats them
+ * differently: a cancel is not an error and must leave everything alone
+ * (issue #21), whereas a rejected pick — "/" being the one that matters —
+ * has to say why.
+ */
+export type ProjectRootPickResult =
+  | { ok: true; projectRoot: string }
+  | { ok: false; canceled: true }
+  | { ok: false; canceled?: false; error: string };
+
 // ─── Renderer-bound payloads (main → renderer push channels) ────────────────
 
 export interface MainToRendererPayloads {
@@ -293,6 +321,13 @@ export interface CcrBridgeApi {
 
   // settings
   saveSettings(input: SettingsSaveInput): Promise<void>;
+
+  /**
+   * Opens the OS directory picker, validates and persists the choice, and
+   * makes it the live default root — no restart. Resolves to the new root on
+   * success. Main owns validation; the renderer never sees an unvetted path.
+   */
+  pickProjectRoot(): Promise<ProjectRootPickResult>;
 
   // auth (in-app login)
   saveAuthFromFirebase(input: AuthSaveInput): Promise<AuthSaveResult>;

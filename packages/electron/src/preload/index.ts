@@ -13,6 +13,7 @@ import {
   type FileReadInput,
   type FileReadResult,
   type Listener,
+  type ProjectRootPickResult,
   type SessionsCreateInput,
   type SessionsCreateResult,
   type SessionsDeleteResult,
@@ -56,6 +57,9 @@ const api: CcrBridgeApi = {
 
   saveSettings: (input: SettingsSaveInput) =>
     invoke<void>(CHANNELS.settingsSave, input),
+
+  pickProjectRoot: () =>
+    invoke<ProjectRootPickResult>(CHANNELS.dialogPickProjectRoot),
 
   saveAuthFromFirebase: (input: AuthSaveInput) =>
     invoke<AuthSaveResult>(CHANNELS.authSave, input),

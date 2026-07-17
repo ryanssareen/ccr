@@ -24,6 +24,7 @@ import type {
   FileReadResult,
   Listener,
   ListedSession,
+  ProjectRootPickResult,
   SessionEvent,
   SessionsCreateInput,
   SessionsCreateResult,
@@ -81,6 +82,7 @@ export const ccrIpcClient = {
   // settings
   saveSettings: (input: SettingsSaveInput): Promise<void> =>
     bridge().saveSettings(input),
+  pickProjectRoot: (): Promise<ProjectRootPickResult> => bridge().pickProjectRoot(),
 
   // auth (in-app login)
   saveAuthFromFirebase: (input: AuthSaveInput): Promise<AuthSaveResult> =>

@@ -16,6 +16,8 @@ export interface SessionRailProps {
   onNewSession: (projectRoot: string) => Promise<void>;
   onDeleteSession?: (path: string) => Promise<void> | void;
   defaultProjectRoot: string;
+  /** Opens the folder picker. Absent in tests/contexts without the bridge. */
+  onPickProjectRoot?: () => Promise<void> | void;
 }
 
 function normalizePath(p: string): string {
@@ -82,8 +84,49 @@ export function SessionRail(props: SessionRailProps) {
         >
           ccr
         </div>
-        <div style={{ color: theme.text, fontSize: 13, fontWeight: 600 }}>
-          {projectName}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              color: theme.text,
+              fontSize: 13,
+              fontWeight: 600,
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {projectName}
+          </div>
+          {props.onPickProjectRoot && (
+            <button
+              type="button"
+              aria-label="Change project folder"
+              title="Choose the folder new sessions run in"
+              onClick={() => void props.onPickProjectRoot?.()}
+              style={{
+                flexShrink: 0,
+                background: "transparent",
+                border: `1px solid ${theme.borderSoft}`,
+                borderRadius: 6,
+                color: theme.textMute,
+                cursor: "pointer",
+                fontSize: 10.5,
+                fontFamily: "inherit",
+                padding: "2px 7px",
+                lineHeight: 1.4,
+              }}
+            >
+              Change
+            </button>
+          )}
         </div>
         <div
           style={{
