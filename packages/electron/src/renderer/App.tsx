@@ -23,6 +23,7 @@ export function App() {
   const indexed = useSessionStore((s) => s.indexed);
   const activeSessionPath = useSessionStore((s) => s.activeSessionPath);
   const defaultProjectRoot = useSessionStore((s) => s.bootstrapDefaultProjectRoot);
+  const defaultModel = useSessionStore((s) => s.bootstrapDefaultModel);
   const firebaseConfig = useSessionStore((s) => s.firebaseConfig);
   const setQuota = useSessionStore((s) => s.setQuota);
   const hydrateBootstrap = useSessionStore((s) => s.hydrateBootstrap);
@@ -30,7 +31,7 @@ export function App() {
   const selectSessionPath = useSessionStore((s) => s.selectSessionPath);
   const deleteSession = useSessionStore((s) => s.deleteSession);
 
-  const [model, setModel] = useState<string>(config?.model ?? "llama-3.3-70b-versatile");
+  const [model, setModel] = useState<string>("");
   const [mode, setMode] = useState<DesktopMode>("ask");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -44,10 +45,18 @@ export function App() {
     };
   }, [hydrateBootstrap, subscribeSessionWatcher]);
 
+  // An explicit config.model wins; otherwise fall back to core's
+  // DEFAULT_MODEL, which rides in on the bootstrap payload. Both are empty on
+  // the first render because bootstrap is async, so this must resolve in an
+  // effect — a useState initializer would freeze the pre-bootstrap value and
+  // never see either. Keep it as ONE effect: two effects each calling setModel
+  // would both fire on the commit where bootstrap lands, and the last writer
+  // would win, silently overriding an explicit config.model.
   useEffect(() => {
-    if (config?.model && config.model !== model) setModel(config.model);
+    const next = config?.model || defaultModel;
+    if (next && next !== model) setModel(next);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.model]);
+  }, [config?.model, defaultModel]);
 
   useEffect(() => {
     return ccrIpcClient.subscribeAgentQuota((payload) => {

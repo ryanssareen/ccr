@@ -46,6 +46,7 @@ const EXPECTED_RUNTIME = [
   "loadConfig",
   "saveConfig",
   "loadAuth",
+  "saveAuth",
   "clearAuth",
   "applyConfig",
   "configPath",

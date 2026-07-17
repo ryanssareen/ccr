@@ -3,6 +3,7 @@ import { theme } from "../theme.js";
 import type { ListedSession } from "../ipc-client.js";
 import {
   dateSubgroupLabel,
+  fileBasename,
   groupSessionsByProject,
   type DateSubgroup,
   type ProjectGroup,
@@ -19,12 +20,6 @@ export interface SessionRailProps {
 
 function normalizePath(p: string): string {
   return p.replace(/\\/g, "/");
-}
-
-function basename(p: string): string {
-  const norm = normalizePath(p);
-  const parts = norm.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? p;
 }
 
 const SUBGROUP_ORDER: readonly DateSubgroup[] = [
@@ -51,7 +46,7 @@ function bucketByDate(sessions: ListedSession[]): Record<DateSubgroup, ListedSes
 /** Left rail — sessions grouped by project (the folder ccr was launched in)
  * and within each project by date bucket. */
 export function SessionRail(props: SessionRailProps) {
-  const projectName = basename(props.defaultProjectRoot) || "ccr";
+  const projectName = fileBasename(props.defaultProjectRoot) || "ccr";
   const projects = useMemo(
     () => groupSessionsByProject(props.indexed),
     [props.indexed],

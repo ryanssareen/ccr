@@ -6,6 +6,7 @@ import os from "node:os";
 import { loadConfig } from "@ccr/core";
 import { AgentHost } from "./agent-host.js";
 import { registerIpcHandlers, registerSessionWatcher } from "./ipc.js";
+import { resolveProjectRoot } from "./project-root.js";
 
 interface PublicFirebaseConfig {
   apiKey: string;
@@ -107,7 +108,17 @@ async function createWindow(): Promise<BrowserWindow> {
 }
 
 app.whenReady().then(async () => {
-  const projectRoot = process.cwd();
+  // NOT process.cwd(): a packaged app launched from Finder/Dock inherits
+  // cwd = "/", which would root every session — and the agent's file tools —
+  // at the filesystem root. See ./project-root.ts for the ordering.
+  const bootConfig = await loadConfig();
+  const projectRoot = resolveProjectRoot({
+    cwd: process.cwd(),
+    isPackaged: app.isPackaged,
+    configuredRoot: bootConfig.projectRoot,
+    homeDir: app.getPath("home"),
+  });
+  console.log(`[ccr] project root: ${projectRoot}`);
   const host = new AgentHost({ projectRoot });
 
   disposeIpcHandlers = registerIpcHandlers(ipcMain, host, {
