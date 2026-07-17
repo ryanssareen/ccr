@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { CopyButton } from "./copy-button";
 
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 const RELEASE_URL =
-  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.4";
+  "https://github.com/ryanssareen/ccr/releases/tag/desktop-v0.1.5";
 const RELEASE_BASE =
-  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.4";
+  "https://github.com/ryanssareen/ccr/releases/download/desktop-v0.1.5";
 
 const DMG_ARM64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-arm64.dmg`;
 const DMG_X64_URL = `${RELEASE_BASE}/ccr-${VERSION}-mac-x64.dmg`;
