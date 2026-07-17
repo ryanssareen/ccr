@@ -57,6 +57,13 @@ export interface BootstrapPayload {
   config: CcrConfig;
   defaultProjectRoot: string;
   /**
+   * `@ccr/core`'s DEFAULT_MODEL, forwarded from main. The renderer can't
+   * import core directly (it pulls in node-only session/agent modules that
+   * won't bundle), so the default has to arrive over IPC rather than as a
+   * fourth hand-copied literal.
+   */
+  defaultModel: string;
+  /**
    * Public Firebase web config used by the renderer to drive the in-app
    * sign-in flow. Mirrors the website's NEXT_PUBLIC_FIREBASE_* env vars.
    * Empty strings when the desktop app is built without auth credentials.

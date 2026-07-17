@@ -68,6 +68,8 @@ const PATCH_DEBOUNCE_MS = 140;
 
 interface SessionSlice {
   bootstrapDefaultProjectRoot: string;
+  /** @ccr/core's DEFAULT_MODEL, forwarded over IPC (the renderer can't import core). */
+  bootstrapDefaultModel: string;
   auth: CcrAuth | null;
   config: CcrConfig | null;
   quota: QuotaState | null;
@@ -121,6 +123,7 @@ function normalizePath(p: string): string {
 
 export const useSessionStore = create<SessionSlice>((set, get) => ({
   bootstrapDefaultProjectRoot: "",
+  bootstrapDefaultModel: "",
   auth: null,
   config: null,
   quota: null,
@@ -143,6 +146,7 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
       auth: payload.auth,
       config: payload.config ?? {},
       bootstrapDefaultProjectRoot: payload.defaultProjectRoot,
+      bootstrapDefaultModel: payload.defaultModel ?? "",
       firebaseConfig: payload.firebaseConfig ?? null,
       authEndpoint: payload.authEndpoint ?? "",
     });

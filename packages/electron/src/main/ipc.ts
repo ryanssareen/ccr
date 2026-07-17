@@ -177,7 +177,7 @@ export function registerIpcHandlers(
 ): () => void {
   // ─── bootstrap ────────────────────────────────────────────────────────────
   ipcMain.handle(CHANNELS.bootstrap, async () => {
-    const [{ loadAuth }, { loadConfig }] = await Promise.all([
+    const [{ loadAuth }, { loadConfig, DEFAULT_MODEL }] = await Promise.all([
       import("@ccr/core"),
       import("@ccr/core"),
     ]);
@@ -186,6 +186,7 @@ export function registerIpcHandlers(
       auth,
       config: config ?? {},
       defaultProjectRoot: options.defaultProjectRoot(),
+      defaultModel: DEFAULT_MODEL,
       firebaseConfig: options.firebaseConfig(),
       authEndpoint: options.authEndpoint(),
     };

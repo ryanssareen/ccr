@@ -9,11 +9,18 @@ import { acquireLock, releaseLock, LockOwnedElsewhereError } from "./session-loc
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const PROXY_API_PATH = "/api/v1";
-// llama-3.3-70b-versatile is the default because the 8b-instant model produces
-// noticeably worse code (it'll happily return a shell one-liner when asked for
-// a recursive function). Per-user quotas keep 70b traffic manageable across
-// the multi-provider pool. Override via `/model` or `CCR_MODEL=...`.
-export const DEFAULT_MODEL = process.env.CCR_MODEL || "llama-3.3-70b-versatile";
+// openai/gpt-oss-120b is the default for two reasons:
+//   1. Tool-calling reliability — it's ranked first in TOOL_CALL_FALLBACKS
+//      below, and tool-calling is the capability an agentic CLI lives on.
+//   2. Provider coverage — it's the only model in MODEL_ALIASES (see
+//      service/functions/src/providers/types.ts) available on all four
+//      providers. The previous default, llama-3.3-70b-versatile, maps to
+//      null on Cerebras, so it could never route to our #2-weighted
+//      provider and forfeited that slice of the failover rotation.
+// Any replacement default must exist in MODEL_ALIASES: unlisted models pass
+// through verbatim to every provider, which is the false-503 failure mode
+// e8bf03b fixed. Override via `/model` or `CCR_MODEL=...`.
+export const DEFAULT_MODEL = process.env.CCR_MODEL || "openai/gpt-oss-120b";
 
 export interface QuotaState {
   used: number;
