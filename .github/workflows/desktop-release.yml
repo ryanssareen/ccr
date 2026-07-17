@@ -47,8 +47,14 @@ jobs:
           # CSC_KEY_PASSWORD. Without these, builds are unsigned.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:${{ matrix.target }}
+        # `--publish never` is load-bearing. electron-builder defaults to
+        # publishing on a tag build, which makes it demand repository metadata
+        # and fail with "Cannot detect repository by .git/config" — this is why
+        # every tagged run before 0.1.5 failed and past releases were uploaded
+        # by hand. Publishing is the `release` job's business, not the
+        # builder's; GH_TOKEN is deliberately not passed here so it cannot
+        # re-enable the behaviour.
+        run: npm run dist:${{ matrix.target }} -- --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -3,6 +3,11 @@
   "version": "0.1.5",
   "description": "CCR desktop app (Electron). Full chat UI on Mac + Windows + Linux.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryanssareen/ccr.git",
+    "directory": "packages/electron"
+  },
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
