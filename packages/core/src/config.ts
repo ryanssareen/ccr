@@ -11,6 +11,16 @@ export interface CcrConfig {
   model?: string;
   nickname?: string;
   customInstructions?: string;
+  /**
+   * Absolute path the desktop app should treat as the project root.
+   *
+   * Optional and absent from every config written before this field existed —
+   * callers must tolerate `undefined` and fall back. A packaged app cannot
+   * learn its project from `process.cwd()` (Finder hands it "/"), so this is
+   * the way to point the shipped app at a real project. Ignored if it is not
+   * an existing absolute directory; a filesystem root is never accepted.
+   */
+  projectRoot?: string;
   toggles?: {
     autoAcceptEdits?: boolean;
     sendTelemetry?: boolean;

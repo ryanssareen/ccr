@@ -51,6 +51,7 @@ import {
   type SettingsSaveInput,
 } from "../common/ipc.js";
 import { AgentHost } from "./agent-host.js";
+import { sanitizeProjectRoot } from "./project-root.js";
 
 export interface IpcMainLike {
   handle(
@@ -215,8 +216,10 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle(CHANNELS.sessionsCreate, async (_event, payload): Promise<SessionsCreateResult> => {
-    const input = (payload as SessionsCreateInput) ?? { projectRoot: options.defaultProjectRoot() };
-    const root = input.projectRoot || options.defaultProjectRoot();
+    const input = (payload ?? {}) as Partial<SessionsCreateInput>;
+    // A renderer-supplied "/" is never honoured — new sessions must not be
+    // created at the filesystem root (issue #19).
+    const root = sanitizeProjectRoot(input.projectRoot, options.defaultProjectRoot());
     const id = newSessionId();
     const sp = coreSessionPath(root, id);
     // Pre-create the file so loadSession works immediately and so the

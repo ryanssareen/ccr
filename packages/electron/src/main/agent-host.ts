@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import OpenAI from "openai";
 import {
@@ -36,6 +37,7 @@ import type {
   MainToRendererChannel,
   MainToRendererPayloads,
 } from "../common/ipc.js";
+import { sanitizeProjectRoot } from "./project-root.js";
 
 const CONTEXT_FILES = ["CLAUDE.md", "AGENTS.md", ".ccr/context.md"];
 const PROJECT_CONTEXT_PER_FILE = 6_000;
@@ -63,6 +65,18 @@ export class AgentHostStartError extends Error {
     this.pid = details.pid;
     this.host = details.host;
   }
+}
+
+/**
+ * The two roots a run needs. They are usually identical, and diverge only for
+ * sessions the pre-fix packaged build created at "/" (issue #19): those keep
+ * their transcript where it already lives, but must not run tools there.
+ */
+interface RunRoots {
+  /** Root the transcript is keyed to — decides where the session file lives. */
+  session: string;
+  /** Root the agent's tools operate against. Never a filesystem root. */
+  operating: string;
 }
 
 interface ActiveRun {
@@ -129,7 +143,9 @@ export class AgentHost {
   private requestCounter = 0;
 
   constructor(options: AgentHostOptions = {}) {
-    this.projectRoot = path.resolve(options.projectRoot ?? process.cwd());
+    // process.cwd() is only a last resort here, and is itself sanitized: a
+    // packaged app's cwd is "/" (issue #19).
+    this.projectRoot = sanitizeProjectRoot(options.projectRoot ?? process.cwd(), os.homedir());
     this.deps = { ...DEFAULT_DEPS, ...options.deps };
   }
 
@@ -146,10 +162,16 @@ export class AgentHost {
     // Per-call projectRoot — sessions can target different repos via the
     // rail "New session in project" button. Falls back to the host's
     // default if the renderer didn't supply one.
-    const effectiveRoot = input.projectRoot
-      ? path.resolve(input.projectRoot)
-      : this.projectRoot;
-    const sessionFilePath = this.deps.sessionPath(effectiveRoot, sessionId);
+    //
+    // The session root is deliberately NOT sanitized: it keys the transcript's
+    // location on disk, so rewriting it would strand an existing conversation
+    // under a different hash. Resuming a legacy "/"-rooted session therefore
+    // still finds its history — it just doesn't get to run tools at "/".
+    const roots: RunRoots = {
+      session: input.projectRoot ? path.resolve(input.projectRoot) : this.projectRoot,
+      operating: sanitizeProjectRoot(input.projectRoot ?? this.projectRoot, this.projectRoot),
+    };
+    const sessionFilePath = this.deps.sessionPath(roots.session, sessionId);
     await fs.mkdir(path.dirname(sessionFilePath), { recursive: true });
     try {
       await this.deps.acquireSessionLock(sessionFilePath, sessionId);
@@ -165,7 +187,7 @@ export class AgentHost {
     }
 
     const abortController = new AbortController();
-    const completion = this.runSession(sender, input, sessionFilePath, effectiveRoot, abortController.signal).finally(
+    const completion = this.runSession(sender, input, sessionFilePath, roots, abortController.signal).finally(
       async () => {
         this.runs.delete(sessionId);
         this.rejectPendingForSession(sessionId, new Error("run ended"));
@@ -218,11 +240,11 @@ export class AgentHost {
     sender: RendererSender,
     input: AgentStartInput,
     sessionFilePath: string,
-    effectiveRoot: string,
+    roots: RunRoots,
     signal: AbortSignal,
   ): Promise<void> {
     const sessionId = input.sessionId;
-    const messages = await this.loadMessagesForSession(sessionFilePath, effectiveRoot);
+    const messages = await this.loadMessagesForSession(sessionFilePath, roots.operating);
     messages.push({ role: "user", content: input.text });
 
     const reporter = this.createReporter(sender, sessionId);
@@ -244,7 +266,7 @@ export class AgentHost {
       client = createNoopClient();
     }
 
-    const ctx = this.createToolContext(sender, sessionId, input.mode, effectiveRoot, signal);
+    const ctx = this.createToolContext(sender, sessionId, input.mode, roots.operating, signal);
     const model = input.model || config.model || DEFAULT_MODEL;
     ctx.runSubagent = this.deps.makeSubagentRunner(client, ctx, model, reporter);
 
@@ -260,10 +282,12 @@ export class AgentHost {
 
     try {
       await this.deps.runAgent(run, messages);
-      await this.deps.saveSession(effectiveRoot, sessionId, messages);
+      // roots.session, not roots.operating — saveSession derives the file path
+      // from the root, so this must stay where the transcript already is.
+      await this.deps.saveSession(roots.session, sessionId, messages);
     } catch (error) {
       if (isAbortError(error)) {
-        await this.deps.saveSession(effectiveRoot, sessionId, messages).catch(() => {});
+        await this.deps.saveSession(roots.session, sessionId, messages).catch(() => {});
         return;
       }
       sender.send("agent:error", {

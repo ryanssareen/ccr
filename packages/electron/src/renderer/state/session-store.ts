@@ -4,9 +4,32 @@ import type { CcrAuth, CcrConfig } from "@ccr/core";
 import { ccrIpcClient, type ListedSession } from "../ipc-client.js";
 import { useRunStore } from "./run-store.js";
 
-function fileBasename(filepath: string): string {
+/**
+ * Last segment of a path, or "" when the path has no segments (e.g. "/").
+ *
+ * Deliberately returns "" rather than echoing the input back: a filesystem
+ * root has no basename, and the old `?? filepath` fallback is what rendered
+ * bare "/" labels in the session rail (issue #19). Callers decide what to
+ * show for the empty case.
+ */
+export function fileBasename(filepath: string): string {
   const parts = filepath.replace(/\\/g, "/").split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? filepath;
+  return parts[parts.length - 1] ?? "";
+}
+
+/**
+ * Human label for a project group.
+ *
+ * Never invents a project name: a root we can't name is reported as unknown
+ * rather than guessed at. The two degenerate cases both come from issue #19 —
+ * sessions the packaged app rooted at "/" before the root-resolution fix, and
+ * legacy sessions written before projectRoot was persisted (root === null).
+ * The hash is retained for null roots purely to keep distinct unknown
+ * projects distinguishable from one another in the rail.
+ */
+function projectDisplayName(projectRoot: string | null, projectIdHash: string): string {
+  if (projectRoot === null) return `Unknown project (${projectIdHash.slice(0, 8)})`;
+  return fileBasename(projectRoot) || "Filesystem root";
 }
 
 export interface ProjectGroup {
@@ -31,8 +54,7 @@ export function groupSessionsByProject(sessions: ListedSession[]): ProjectGroup[
     const pivot = sorted[0];
     rows.push({
       key,
-      displayName:
-        pivot.projectRoot === null ? `(${pivot.projectIdHash.slice(0, 8)}…)` : fileBasename(pivot.projectRoot),
+      displayName: projectDisplayName(pivot.projectRoot, pivot.projectIdHash),
       projectRoot: pivot.projectRoot,
       projectIdHash: pivot.projectIdHash,
       sessions: sorted,
