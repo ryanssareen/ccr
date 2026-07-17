@@ -29,6 +29,47 @@ export function entriesFromStoredMessages(messages: unknown[]): ChatPaneEntry[] 
   return out;
 }
 
+function isPersistable(e: ChatPaneEntry): boolean {
+  return e.kind === "user" || e.kind === "assistant";
+}
+
+function sameEntry(a: ChatPaneEntry, b: ChatPaneEntry): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "user" || a.kind === "assistant") {
+    return a.text === (b as { text: string }).text;
+  }
+  return false;
+}
+
+/**
+ * Merge a re-read of the *already active* session into the live transcript.
+ *
+ * A same-session refresh must never delete live rows. The transcript
+ * legitimately runs ahead of disk: the optimistic user echo isn't persisted
+ * until the run ends, and tool cards / system lines are never persisted in a
+ * form `entriesFromStoredMessages` re-renders at all. So we only ever *append*,
+ * and only when the live transcript's persistable projection is an exact prefix
+ * of what's on disk — which means disk holds turns we've genuinely never seen
+ * (another window wrote to this session).
+ *
+ * Any divergence means live is the richer view — e.g. the echo shows the text
+ * the user typed while disk stores the composed prompt with attached file
+ * blocks — so we keep live untouched rather than duplicate the turn.
+ */
+export function mergeStoredIntoLive(
+  live: ChatPaneEntry[],
+  incoming: ChatPaneEntry[],
+): ChatPaneEntry[] {
+  const projection = live.filter(isPersistable);
+  // Live is ahead of disk (unpersisted echo, or disk was truncated) — trust live.
+  if (projection.length > incoming.length) return live;
+  for (let i = 0; i < projection.length; i++) {
+    if (!sameEntry(projection[i]!, incoming[i]!)) return live; // diverged — trust live
+  }
+  const tail = incoming.slice(projection.length);
+  return tail.length > 0 ? [...live, ...tail] : live;
+}
+
 interface ApprovalUI {
   requestId: string;
   kind: string;
@@ -49,13 +90,20 @@ interface RunSlice {
   streamingTail: string;
   entries: ChatPaneEntry[];
   statusLine: string | null;
+  /** Session id the current `entries` were hydrated from; drives switch-vs-refresh. */
+  hydratedSessionId: string | null;
 
   approval: ApprovalUI | null;
   askModal: AskUI | null;
 
   setModelMode: (m: string, mode: DesktopMode) => void;
-  /** Replace transcript + clear live stream when swapping sessions */
-  hydrateFromStored: (_sessionId: string | null, messages: unknown[]) => void;
+  /**
+   * Load a persisted transcript. Replaces the transcript and clears live state
+   * only when the session actually *changes*; a refresh of the already-hydrated
+   * session merges (append-only) so watcher ticks can't clobber the optimistic
+   * echo or an in-flight stream.
+   */
+  hydrateFromStored: (sessionId: string | null, messages: unknown[]) => void;
   pushUserEcho: (text: string) => void;
   setStreamingTail: (s: string) => void;
   clearStreamingTail: () => void;
@@ -78,20 +126,40 @@ export const useRunStore = create<RunSlice>((set, get) => ({
   streamingTail: "",
   entries: [],
   statusLine: null,
+  hydratedSessionId: null,
 
   approval: null,
   askModal: null,
 
   setModelMode: (model, mode) => set({ model, mode }),
 
-  hydrateFromStored: (_sessionId, messages) =>
-    set({
-      runningSessionId: null,
-      streamingTail: "",
-      approval: null,
-      askModal: null,
-      entries: entriesFromStoredMessages(messages),
-    }),
+  hydrateFromStored: (sessionId, messages) => {
+    const incoming = entriesFromStoredMessages(messages);
+    const { hydratedSessionId, runningSessionId, entries } = get();
+
+    // Genuinely switching sessions: the previous transcript and any live
+    // stream belong to a session we're leaving, so blow it all away.
+    if (sessionId !== hydratedSessionId) {
+      set({
+        hydratedSessionId: sessionId,
+        runningSessionId: null,
+        streamingTail: "",
+        approval: null,
+        askModal: null,
+        entries: incoming,
+      });
+      return;
+    }
+
+    // Same session re-read (watcher tick, lock change, post-run reload).
+    // Our own run is mid-flight: the live event stream is authoritative and
+    // disk is stale by a whole turn (agent-host persists only once the run
+    // ends), so there is nothing to learn from disk here.
+    if (runningSessionId === sessionId) return;
+
+    const merged = mergeStoredIntoLive(entries, incoming);
+    if (merged !== entries) set({ entries: merged });
+  },
 
   pushUserEcho: (text) =>
     set((s) => ({ entries: [...s.entries, { kind: "user", text }] })),
