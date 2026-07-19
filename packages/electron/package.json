@@ -1,6 +1,6 @@
 {
   "name": "@ccr/desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "CCR desktop app (Electron). Full chat UI on Mac + Windows + Linux.",
   "license": "MIT",
   "repository": {
