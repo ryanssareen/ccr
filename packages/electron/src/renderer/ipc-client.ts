@@ -24,7 +24,9 @@ import type {
   FileReadResult,
   Listener,
   ListedSession,
+  OpenExternalResult,
   ProjectRootPickResult,
+  UpdateCheckResult,
   SessionEvent,
   SessionsCreateInput,
   SessionsCreateResult,
@@ -92,6 +94,11 @@ export const ccrIpcClient = {
   // file read
   readFile: (input: FileReadInput): Promise<FileReadResult> =>
     bridge().readFile(input),
+
+  // app / updates
+  checkForUpdate: (): Promise<UpdateCheckResult> => bridge().checkForUpdate(),
+  openExternal: (url: string): Promise<OpenExternalResult> =>
+    bridge().openExternal(url),
 
   // push streams
   subscribeAgentTokens: (listener: Listener<AgentTokenPayload>): Unsubscribe =>

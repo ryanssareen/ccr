@@ -7,9 +7,10 @@ import { ChatStage } from "./components/ChatStage.js";
 import { SettingsModal } from "./components/SettingsModal.js";
 import { LoginScreen } from "./components/LoginScreen.js";
 import { CommandBar } from "./components/CommandBar.js";
-import { Toast } from "./components/ui.js";
+import { Toast, UpdateBanner } from "./components/ui.js";
 import { KNOWN_MODELS } from "./known-models.js";
 import { signOutFirebase } from "./firebase-client.js";
+import type { UpdateCheckResult } from "../common/ipc.js";
 
 const SLASH_COMMANDS = [
   { label: "/clear", shortcut: "/clear" },
@@ -22,6 +23,7 @@ export function App() {
   const auth = useSessionStore((s) => s.auth);
   const config = useSessionStore((s) => s.config);
   const quota = useSessionStore((s) => s.quota);
+  const appVersion = useSessionStore((s) => s.appVersion);
   const indexed = useSessionStore((s) => s.indexed);
   const activeSessionPath = useSessionStore((s) => s.activeSessionPath);
   const defaultProjectRoot = useSessionStore((s) => s.bootstrapDefaultProjectRoot);
@@ -45,6 +47,8 @@ export function App() {
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [update, setUpdate] = useState<UpdateCheckResult | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
 
   const showToast = useCallback((text: string) => {
     setToast(text);
@@ -86,6 +90,19 @@ export function App() {
       });
     });
   }, [setQuota]);
+
+  // Check for a newer desktop release once we're booted and signed in. Silent
+  // on failure — an offline launch shouldn't surface anything.
+  useEffect(() => {
+    if (!bootstrapped || !auth) return;
+    let cancelled = false;
+    void ccrIpcClient.checkForUpdate().then((r) => {
+      if (!cancelled) setUpdate(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bootstrapped, auth]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -231,12 +248,13 @@ export function App() {
     );
   }
 
+  const showUpdateBanner = !!update?.ok && !!update.updateAvailable && !updateDismissed;
+
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: `${sidebarCollapsed ? 72 : 272}px 1fr`,
-        gridTemplateRows: "1fr",
+        display: "flex",
+        flexDirection: "column",
         height: "100vh",
         width: "100vw",
         overflow: "hidden",
@@ -245,6 +263,26 @@ export function App() {
         fontFamily: "var(--font-sans)",
       }}
     >
+      {showUpdateBanner && (
+        <UpdateBanner
+          version={update?.latest ?? ""}
+          onDownload={() => {
+            if (update?.releaseUrl) void ccrIpcClient.openExternal(update.releaseUrl);
+          }}
+          onDismiss={() => setUpdateDismissed(true)}
+        />
+      )}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: `${sidebarCollapsed ? 72 : 272}px 1fr`,
+          gridTemplateRows: "1fr",
+          width: "100%",
+          overflow: "hidden",
+        }}
+      >
       <SessionRail
         indexed={indexed}
         activeSessionPath={activeSessionPath}
@@ -291,6 +329,7 @@ export function App() {
         <SettingsModal
           config={config ?? {}}
           quota={quota}
+          appVersion={appVersion}
           onClose={() => setSettingsOpen(false)}
           onSignOut={() => void handleSignOut()}
           onToast={showToast}
@@ -325,6 +364,7 @@ export function App() {
           setMode(m);
         }}
       />
+      </div>
     </div>
   );
 }

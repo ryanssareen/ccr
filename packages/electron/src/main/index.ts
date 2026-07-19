@@ -139,6 +139,7 @@ app.whenReady().then(async () => {
     loadConfigOnce: () => loadConfig(),
     firebaseConfig: resolveFirebaseConfig,
     authEndpoint: () => process.env.CCR_ENDPOINT ?? "https://ccr-ebon.vercel.app",
+    appVersion: () => app.getVersion(),
   });
 
   // One watcher, broadcast to every open window's webContents.

@@ -33,6 +33,71 @@ export function ProgressBar({ pct, height = 8 }: { pct: number; height?: number 
   );
 }
 
+/**
+ * Slim top-of-window bar announcing a newer release. Unsigned builds can't
+ * self-install, so "Download" opens the release page rather than updating in
+ * place. Dismissable — the same version is still reachable from Settings.
+ */
+export function UpdateBanner({
+  version,
+  onDownload,
+  onDismiss,
+}: {
+  version: string;
+  onDownload: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      style={{
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "8px 16px",
+        background: theme.claySoft,
+        borderBottom: `1px solid ${theme.borderSoft}`,
+        color: theme.text,
+        fontSize: 13,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{ width: 7, height: 7, borderRadius: "50%", background: theme.clay, flexShrink: 0 }}
+      />
+      <span>
+        A new version of ccr is available — <strong>v{version}</strong>.
+      </span>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={onDownload}
+        style={{ padding: "5px 12px", fontSize: 12.5 }}
+      >
+        Download
+      </button>
+      <div style={{ flex: 1 }} />
+      <button
+        type="button"
+        aria-label="Dismiss update notice"
+        title="Dismiss"
+        onClick={onDismiss}
+        style={{
+          background: "transparent",
+          border: "none",
+          color: theme.textMute,
+          cursor: "pointer",
+          fontSize: 16,
+          lineHeight: 1,
+          padding: "0 4px",
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 /** Bottom-right ink toast. Rendered by App; auto-dismiss lives in the caller. */
 export function Toast({ text }: { text: string }) {
   return (

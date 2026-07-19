@@ -103,6 +103,8 @@ interface SessionSlice {
   needsProjectRootChoice: boolean;
   /** @ccr/core's DEFAULT_MODEL, forwarded over IPC (the renderer can't import core). */
   bootstrapDefaultModel: string;
+  /** Installed app version (`app.getVersion()`), from bootstrap. */
+  appVersion: string;
   auth: CcrAuth | null;
   config: CcrConfig | null;
   quota: QuotaState | null;
@@ -162,6 +164,7 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
   bootstrapDefaultProjectRoot: "",
   needsProjectRootChoice: false,
   bootstrapDefaultModel: "",
+  appVersion: "",
   auth: null,
   config: null,
   quota: null,
@@ -186,6 +189,7 @@ export const useSessionStore = create<SessionSlice>((set, get) => ({
       bootstrapDefaultProjectRoot: payload.defaultProjectRoot,
       needsProjectRootChoice: payload.needsProjectRootChoice ?? false,
       bootstrapDefaultModel: payload.defaultModel ?? "",
+      appVersion: payload.appVersion ?? "",
       firebaseConfig: payload.firebaseConfig ?? null,
       authEndpoint: payload.authEndpoint ?? "",
     });

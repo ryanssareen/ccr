@@ -13,7 +13,9 @@ import {
   type FileReadInput,
   type FileReadResult,
   type Listener,
+  type OpenExternalResult,
   type ProjectRootPickResult,
+  type UpdateCheckResult,
   type SessionsCreateInput,
   type SessionsCreateResult,
   type SessionsDeleteResult,
@@ -67,6 +69,10 @@ const api: CcrBridgeApi = {
 
   readFile: (input: FileReadInput) =>
     invoke<FileReadResult>(CHANNELS.fileRead, input),
+
+  checkForUpdate: () => invoke<UpdateCheckResult>(CHANNELS.appCheckUpdate),
+  openExternal: (url: string) =>
+    invoke<OpenExternalResult>(CHANNELS.appOpenExternal, url),
 
   onAgentToken: (listener) => subscribe(CHANNELS.agentToken, listener),
   onAssistantTurnEnd: (listener) =>

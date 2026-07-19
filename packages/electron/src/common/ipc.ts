@@ -52,6 +52,10 @@ export const CHANNELS = {
 
   // file upload
   fileRead: "file:read",
+
+  // app / updates
+  appCheckUpdate: "app:check-update",
+  appOpenExternal: "app:open-external",
 } as const;
 
 // ─── Bootstrap ──────────────────────────────────────────────────────────────
@@ -91,6 +95,9 @@ export interface BootstrapPayload {
   };
   /** Proxy endpoint used for /api/v1/exchangeFirebaseToken. */
   authEndpoint: string;
+  /** Installed app version (`app.getVersion()`), shown in Settings and used
+   * as the baseline for the update check. */
+  appVersion: string;
 }
 
 export interface AuthSaveInput {
@@ -276,6 +283,38 @@ export type ProjectRootPickResult =
   | { ok: false; canceled: true }
   | { ok: false; canceled?: false; error: string };
 
+// ─── App / updates ──────────────────────────────────────────────────────────
+
+/**
+ * Outcome of `app:check-update` — a GitHub-Releases lookup, not an installer.
+ *
+ * The desktop builds are unsigned (see packages/electron/RELEASING.md), so
+ * macOS won't let an updater self-install them. Instead the app checks the
+ * repo's latest `desktop-v*` release and, when it's newer, points the user at
+ * the release page to download the DMG themselves.
+ */
+export interface UpdateCheckResult {
+  /** False only when the check itself failed (offline, GitHub error). */
+  ok: boolean;
+  /** The running version, always echoed back. */
+  current: string;
+  /** Latest published desktop version (`x.y.z`), when a release was found. */
+  latest?: string;
+  /** True when `latest` is strictly newer than `current`. */
+  updateAvailable?: boolean;
+  /** GitHub Release page for `latest` — where the installers live. */
+  releaseUrl?: string;
+  /** ISO timestamp the latest release was published. */
+  publishedAt?: string;
+  /** Present when `ok` is false. */
+  error?: string;
+}
+
+export interface OpenExternalResult {
+  ok: boolean;
+  error?: string;
+}
+
 // ─── Renderer-bound payloads (main → renderer push channels) ────────────────
 
 export interface MainToRendererPayloads {
@@ -335,6 +374,12 @@ export interface CcrBridgeApi {
 
   // file upload (read attached file from disk)
   readFile(input: FileReadInput): Promise<FileReadResult>;
+
+  // app / updates
+  /** Check GitHub Releases for a newer desktop version. */
+  checkForUpdate(): Promise<UpdateCheckResult>;
+  /** Open an allowlisted https URL (the release page) in the OS browser. */
+  openExternal(url: string): Promise<OpenExternalResult>;
 
   // push streams (main → renderer)
   onAgentToken(listener: Listener<AgentTokenPayload>): Unsubscribe;

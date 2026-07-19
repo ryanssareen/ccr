@@ -53,6 +53,7 @@ import {
 } from "../common/ipc.js";
 import { AgentHost } from "./agent-host.js";
 import { isUsableProjectRoot, sanitizeProjectRoot } from "./project-root.js";
+import { checkForUpdate, openExternalSafe } from "./update.js";
 
 export interface IpcMainLike {
   handle(
@@ -185,6 +186,12 @@ export interface RegisterIpcOptions {
   };
   /** Proxy endpoint used to mint a CCR token from a Firebase ID token. */
   authEndpoint: () => string;
+  /**
+   * Installed app version (`app.getVersion()`). Optional so tests that build
+   * options by hand don't have to supply it; the update check falls back to a
+   * harmless "0.0.0" that reports every real release as newer.
+   */
+  appVersion?: () => string;
 }
 
 const DEFAULT_FILE_READ_BYTES = 64 * 1024;
@@ -253,6 +260,7 @@ export function registerIpcHandlers(
       defaultModel: DEFAULT_MODEL,
       firebaseConfig: options.firebaseConfig(),
       authEndpoint: options.authEndpoint(),
+      appVersion: options.appVersion?.() ?? "0.0.0",
     };
   });
 
@@ -431,6 +439,12 @@ export function registerIpcHandlers(
     await coreClearAuth();
   });
 
+  // ─── app / updates ────────────────────────────────────────────────────────
+  ipcMain.handle(CHANNELS.appCheckUpdate, () =>
+    checkForUpdate(options.appVersion?.() ?? "0.0.0"),
+  );
+  ipcMain.handle(CHANNELS.appOpenExternal, (_event, payload) => openExternalSafe(payload));
+
   // ─── file read (for chat attachment) ──────────────────────────────────────
   ipcMain.handle(CHANNELS.fileRead, async (_event, payload): Promise<FileReadResult> => {
     const input = (payload ?? {}) as FileReadInput;
@@ -485,6 +499,8 @@ export function registerIpcHandlers(
       CHANNELS.authSave,
       CHANNELS.authClear,
       CHANNELS.fileRead,
+      CHANNELS.appCheckUpdate,
+      CHANNELS.appOpenExternal,
     ]) {
       ipcMain.removeHandler(channel);
     }
