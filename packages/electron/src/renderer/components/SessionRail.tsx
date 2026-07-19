@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { CcrAuth, CcrConfig, QuotaState } from "@ccr/core";
 import { theme } from "../theme.js";
 import type { ListedSession } from "../ipc-client.js";
 import {
@@ -8,6 +9,7 @@ import {
   type DateSubgroup,
   type ProjectGroup,
 } from "../state/session-store.js";
+import { ProfileFooter } from "./ProfileFooter.js";
 
 export interface SessionRailProps {
   indexed: ListedSession[];
@@ -18,6 +20,22 @@ export interface SessionRailProps {
   defaultProjectRoot: string;
   /** Opens the folder picker. Absent in tests/contexts without the bridge. */
   onPickProjectRoot?: () => Promise<void> | void;
+
+  /** Collapse state is owned by App so the grid column width can follow it. */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  /** Session search — controlled by App so ⌘K and the rail can share intent. */
+  query?: string;
+  onQueryChange?: (q: string) => void;
+
+  // Footer wiring (profile chip + quota meter live at the bottom of the rail).
+  auth?: CcrAuth | null;
+  config?: CcrConfig | null;
+  quota?: QuotaState | null;
+  onOpenSettings?: () => void;
+
+  /** Fire-and-forget confirmations (new session, delete). */
+  onToast?: (text: string) => void;
 }
 
 function normalizePath(p: string): string {
@@ -45,173 +63,308 @@ function bucketByDate(sessions: ListedSession[]): Record<DateSubgroup, ListedSes
   return out;
 }
 
-/** Left rail — sessions grouped by project (the folder ccr was launched in)
- * and within each project by date bucket. */
+function matches(s: ListedSession, q: string): boolean {
+  return !q || s.title.toLowerCase().includes(q);
+}
+
+/** Left rail — the current project's sessions grouped by date bucket, with
+ * every other project tucked into an "Other projects" disclosure. Search,
+ * collapse, and the profile/quota footer live here too. */
 export function SessionRail(props: SessionRailProps) {
-  const projectName = fileBasename(props.defaultProjectRoot) || "ccr";
+  const collapsed = !!props.collapsed;
+  const showText = !collapsed;
+  const q = (props.query ?? "").trim().toLowerCase();
+
   const projects = useMemo(
     () => groupSessionsByProject(props.indexed),
     [props.indexed],
   );
-  const empty = props.indexed.length === 0;
+
+  const defRoot = normalizePath(props.defaultProjectRoot);
+  const currentGroup = useMemo(
+    () => projects.find((g) => g.projectRoot && normalizePath(g.projectRoot) === defRoot),
+    [projects, defRoot],
+  );
+  const otherGroups = useMemo(
+    () => projects.filter((g) => g !== currentGroup),
+    [projects, currentGroup],
+  );
+
+  const currentName = fileBasename(props.defaultProjectRoot) || "ccr";
+  const currentSessions = (currentGroup?.sessions ?? []).filter((s) => matches(s, q));
+  const otherFiltered = otherGroups
+    .map((g) => ({ group: g, sessions: g.sessions.filter((s) => matches(s, q)) }))
+    .filter((g) => g.sessions.length > 0);
+
+  const totalMatches =
+    currentSessions.length + otherFiltered.reduce((n, g) => n + g.sessions.length, 0);
+  const hasNoResults = q.length > 0 && totalMatches === 0;
+
+  const activeInOther = props.activeSessionPath
+    ? otherGroups.some((g) =>
+        g.sessions.some(
+          (s) => normalizePath(s.sessionPath) === normalizePath(props.activeSessionPath ?? ""),
+        ),
+      )
+    : false;
 
   return (
     <nav
       style={{
-        gridArea: "sessions",
-        overflow: "auto",
-        background: theme.bgAlt,
-        borderRight: `1px solid ${theme.borderSoft}`,
         display: "flex",
         flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        overflow: "hidden",
+        background: theme.bgAlt,
+        borderRight: `1px solid ${theme.borderSoft}`,
       }}
     >
-      {/* Project header */}
+      {/* ── Header: wordmark, project identity, collapse toggle ── */}
       <div
         style={{
-          padding: "16px 16px 12px",
+          padding: "16px 14px 12px",
           borderBottom: `1px solid ${theme.borderSoft}`,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 8,
         }}
       >
-        <div
-          className="wordmark"
-          style={{
-            fontSize: 28,
-            color: theme.text,
-            display: "block",
-            marginBottom: 8,
-          }}
-        >
-          ccr
+        <div style={{ minWidth: 0 }}>
+          <div className="wordmark" style={{ fontSize: 26, lineHeight: 1 }}>
+            ccr
+          </div>
+          {showText &&
+            (props.onPickProjectRoot ? (
+              <button
+                type="button"
+                aria-label="Change project folder"
+                title="Choose the folder new sessions run in"
+                onClick={() => void props.onPickProjectRoot?.()}
+                style={{
+                  display: "block",
+                  marginTop: 6,
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                }}
+              >
+                <div style={projectNameStyle}>{currentName}</div>
+                <div style={projectRootStyle} title={props.defaultProjectRoot}>
+                  {props.defaultProjectRoot}
+                </div>
+              </button>
+            ) : (
+              <div style={{ marginTop: 6 }}>
+                <div style={projectNameStyle}>{currentName}</div>
+                <div style={projectRootStyle} title={props.defaultProjectRoot}>
+                  {props.defaultProjectRoot}
+                </div>
+              </div>
+            ))}
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
-        >
-          <div
+        {props.onToggleCollapse && (
+          <button
+            type="button"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={props.onToggleCollapse}
             style={{
-              color: theme.text,
-              fontSize: 13,
-              fontWeight: 600,
-              minWidth: 0,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              flexShrink: 0,
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: `1px solid ${theme.borderSoft}`,
+              background: "transparent",
+              color: theme.textMute,
+              cursor: "pointer",
+              display: "grid",
+              placeItems: "center",
+              marginTop: 2,
             }}
           >
-            {projectName}
-          </div>
-          {props.onPickProjectRoot && (
-            <button
-              type="button"
-              aria-label="Change project folder"
-              title="Choose the folder new sessions run in"
-              onClick={() => void props.onPickProjectRoot?.()}
+            <span
               style={{
-                flexShrink: 0,
-                background: "transparent",
-                border: `1px solid ${theme.borderSoft}`,
-                borderRadius: 6,
-                color: theme.textMute,
-                cursor: "pointer",
-                fontSize: 10.5,
-                fontFamily: "inherit",
-                padding: "2px 7px",
-                lineHeight: 1.4,
+                fontSize: 11,
+                display: "inline-block",
+                transform: collapsed ? "rotate(180deg)" : "none",
               }}
             >
-              Change
-            </button>
-          )}
-        </div>
-        <div
-          style={{
-            color: theme.textMute,
-            fontSize: 11,
-            marginTop: 2,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-          title={props.defaultProjectRoot}
-        >
-          {props.defaultProjectRoot}
-        </div>
+              ◂
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* New session CTA */}
-      <button
-        type="button"
-        onClick={() => void props.onNewSession(props.defaultProjectRoot)}
-        style={{
-          margin: "12px 10px 6px",
-          padding: "9px 12px",
-          textAlign: "left",
-          background: "transparent",
-          border: `1px dashed ${theme.borderSoft}`,
-          borderRadius: 8,
-          color: theme.clay,
-          cursor: "pointer",
-          fontSize: 13,
-          fontFamily: "inherit",
-          fontWeight: 500,
-        }}
-      >
-        + New session
-      </button>
+      {/* ── Search ── */}
+      {showText && (
+        <div style={{ padding: "10px 10px 4px" }}>
+          <input
+            className="input"
+            placeholder="Search sessions…"
+            value={props.query ?? ""}
+            onChange={(e) => props.onQueryChange?.(e.target.value)}
+            style={{ height: 36, padding: "0 12px", fontSize: 13, borderRadius: 8 }}
+          />
+        </div>
+      )}
 
-      {/* Recents — grouped by project → date bucket */}
-      <div style={{ padding: "8px 4px 16px", flex: 1 }}>
-        {empty && (
-          <div
-            style={{
-              color: theme.textMute,
-              fontSize: 12,
-              padding: "12px 14px",
-              lineHeight: 1.5,
-            }}
-          >
-            No sessions yet. Click "+ New session" to start, or run a session
-            from the CLI — it'll show up here automatically.
+      {/* ── New session CTA ── */}
+      <div style={{ padding: "8px 10px 6px" }}>
+        <button
+          type="button"
+          onClick={() => {
+            void props.onNewSession(props.defaultProjectRoot);
+            props.onToast?.("New session started");
+          }}
+          className="btn btn-ghost"
+          style={{
+            width: "100%",
+            justifyContent: showText ? "flex-start" : "center",
+            height: 36,
+            padding: showText ? "0 12px" : 0,
+            color: theme.clay,
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          {showText ? "+ New session" : "+"}
+        </button>
+      </div>
+
+      {/* ── Session list ── */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "4px 6px 10px" }}>
+        {hasNoResults && showText && (
+          <div style={{ color: theme.textSoft, fontSize: 12, padding: "14px 12px", lineHeight: 1.5 }}>
+            No sessions match "{props.query}".
           </div>
         )}
-        {projects.map((group) => (
-          <ProjectSection
-            key={group.key}
-            group={group}
-            activeSessionPath={props.activeSessionPath}
-            onSelect={props.onSelect}
-            onDelete={props.onDeleteSession}
-          />
-        ))}
+
+        {props.indexed.length === 0 && !q && showText && (
+          <div style={{ color: theme.textSoft, fontSize: 12, padding: "12px 12px", lineHeight: 1.5 }}>
+            No sessions yet. Click "+ New session" to start, or run a session from
+            the CLI — it'll show up here automatically.
+          </div>
+        )}
+
+        {collapsed ? (
+          // Collapsed: a flat column of selectable dots, newest first.
+          <div style={{ padding: "4px 2px" }}>
+            {[...(currentGroup?.sessions ?? []), ...otherGroups.flatMap((g) => g.sessions)].map(
+              (s) => (
+                <SessionRow
+                  key={s.sessionPath}
+                  session={s}
+                  active={
+                    normalizePath(props.activeSessionPath ?? "") === normalizePath(s.sessionPath)
+                  }
+                  collapsed
+                  onSelect={props.onSelect}
+                />
+              ),
+            )}
+          </div>
+        ) : (
+          <div style={{ padding: "4px 4px 2px" }}>
+            {/* Current project */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 8px 2px",
+                color: theme.text,
+                fontSize: 11.5,
+                fontWeight: 600,
+              }}
+              title={currentGroup?.projectRoot ?? props.defaultProjectRoot}
+            >
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {currentName}
+              </span>
+              <span style={{ color: theme.textSoft, fontWeight: 500 }}>
+                {currentSessions.length}
+              </span>
+            </div>
+            <DateBuckets
+              sessions={currentSessions}
+              activeSessionPath={props.activeSessionPath}
+              onSelect={props.onSelect}
+              onDelete={props.onDeleteSession}
+              onToast={props.onToast}
+            />
+
+            {/* Other projects */}
+            {otherFiltered.length > 0 && (
+              <OtherProjects
+                projects={otherFiltered}
+                activeSessionPath={props.activeSessionPath}
+                onSelect={props.onSelect}
+                onDelete={props.onDeleteSession}
+                onToast={props.onToast}
+                forceOpen={q.length > 0 || activeInOther}
+              />
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Footer: profile chip + quota meter ── */}
+      <ProfileFooter
+        auth={props.auth ?? null}
+        config={props.config ?? null}
+        quota={props.quota ?? null}
+        collapsed={collapsed}
+        onOpenSettings={props.onOpenSettings ?? (() => undefined)}
+      />
     </nav>
   );
 }
 
-function ProjectSection(props: {
-  group: ProjectGroup;
+const projectNameStyle: React.CSSProperties = {
+  color: theme.text,
+  fontSize: 13,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const projectRootStyle: React.CSSProperties = {
+  color: theme.textSoft,
+  fontSize: 10.5,
+  marginTop: 1,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  fontFamily: "var(--font-mono)",
+};
+
+function OtherProjects(props: {
+  projects: { group: ProjectGroup; sessions: ListedSession[] }[];
   activeSessionPath: string | null;
   onSelect: (path: string) => void;
   onDelete?: (path: string) => Promise<void> | void;
+  onToast?: (text: string) => void;
+  forceOpen: boolean;
 }) {
-  const { group } = props;
-  const containsActive = props.activeSessionPath
-    ? group.sessions.some(
-        (s) => normalizePath(s.sessionPath) === normalizePath(props.activeSessionPath ?? ""),
-      )
-    : false;
-  const [open, setOpen] = useState(true);
-  const buckets = bucketByDate(group.sessions);
-  // If the active session is inside a collapsed group, force-expand so it's visible.
-  const expanded = open || containsActive;
+  const [open, setOpen] = useState(false);
+  const expanded = open || props.forceOpen;
+  const count = props.projects.reduce((n, p) => n + p.group.sessions.length, 0);
 
   return (
-    <div style={{ marginBottom: 6 }}>
+    <div style={{ marginTop: 8, borderTop: `1px solid ${theme.borderSoft2}`, paddingTop: 6 }}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -219,96 +372,109 @@ function ProjectSection(props: {
           display: "flex",
           alignItems: "center",
           gap: 6,
-          width: "calc(100% - 8px)",
-          margin: "8px 4px 2px",
-          padding: "4px 10px",
+          width: "100%",
+          padding: "6px 8px",
           background: "transparent",
           border: "none",
-          color: theme.text,
-          fontSize: 12,
+          color: theme.textDim,
+          fontSize: 11.5,
           fontWeight: 600,
           cursor: "pointer",
           textAlign: "left",
           fontFamily: "var(--font-sans)",
         }}
-        title={group.projectRoot ?? `(${group.projectIdHash})`}
       >
         <span
           style={{
             display: "inline-block",
-            width: 10,
-            color: theme.textMute,
+            width: 9,
+            fontSize: 9,
+            color: theme.textSoft,
             transform: expanded ? "rotate(90deg)" : "none",
             transition: "transform 120ms",
-            fontSize: 10,
           }}
         >
           ▶
         </span>
-        <span
-          style={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            flex: 1,
-          }}
-        >
-          {group.displayName}
-        </span>
-        <span style={{ color: theme.textMute, fontSize: 11, fontWeight: 500 }}>
-          {group.sessions.length}
-        </span>
+        <span style={{ flex: 1 }}>Other projects</span>
+        <span style={{ color: theme.textSoft, fontWeight: 500 }}>{count}</span>
       </button>
-      {group.projectRoot && expanded && (
-        <div
-          style={{
-            color: theme.textMute,
-            fontSize: 10.5,
-            padding: "0 14px 4px 24px",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            fontFamily: "var(--font-mono)",
-          }}
-          title={group.projectRoot}
-        >
-          {group.projectRoot}
-        </div>
-      )}
-
       {expanded &&
-        SUBGROUP_ORDER.map((bucket) =>
-          buckets[bucket].length === 0 ? null : (
-            <div key={bucket} style={{ marginBottom: 2 }}>
-              <div
-                style={{
-                  color: theme.textMute,
-                  fontSize: 9.5,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.7,
-                  padding: "6px 14px 2px 24px",
-                }}
-              >
-                {bucket}
-              </div>
-              {buckets[bucket].map((s) => {
-                const active =
-                  normalizePath(props.activeSessionPath ?? "") ===
-                  normalizePath(s.sessionPath);
-                return (
-                  <SessionRow
-                    key={s.sessionPath}
-                    session={s}
-                    active={active}
-                    onSelect={props.onSelect}
-                    onDelete={props.onDelete}
-                  />
-                );
-              })}
+        props.projects.map(({ group, sessions }) => (
+          <div key={group.key} style={{ padding: "2px 4px 6px 8px" }}>
+            <div
+              style={{
+                color: theme.textMute,
+                fontSize: 10.5,
+                fontWeight: 600,
+                padding: "4px 8px 2px 16px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              title={group.projectRoot ?? `(${group.projectIdHash})`}
+            >
+              {group.displayName}
             </div>
-          ),
-        )}
+            {sessions.map((s) => (
+              <SessionRow
+                key={s.sessionPath}
+                session={s}
+                active={
+                  normalizePath(props.activeSessionPath ?? "") === normalizePath(s.sessionPath)
+                }
+                indent
+                onSelect={props.onSelect}
+                onDelete={props.onDelete}
+                onToast={props.onToast}
+              />
+            ))}
+          </div>
+        ))}
     </div>
+  );
+}
+
+function DateBuckets(props: {
+  sessions: ListedSession[];
+  activeSessionPath: string | null;
+  onSelect: (path: string) => void;
+  onDelete?: (path: string) => Promise<void> | void;
+  onToast?: (text: string) => void;
+}) {
+  const buckets = bucketByDate(props.sessions);
+  return (
+    <>
+      {SUBGROUP_ORDER.map((bucket) =>
+        buckets[bucket].length === 0 ? null : (
+          <div key={bucket} style={{ marginBottom: 2 }}>
+            <div
+              style={{
+                color: theme.textSoft,
+                fontSize: 9.5,
+                textTransform: "uppercase",
+                letterSpacing: 0.7,
+                padding: "7px 8px 3px 10px",
+              }}
+            >
+              {bucket}
+            </div>
+            {buckets[bucket].map((s) => (
+              <SessionRow
+                key={s.sessionPath}
+                session={s}
+                active={
+                  normalizePath(props.activeSessionPath ?? "") === normalizePath(s.sessionPath)
+                }
+                onSelect={props.onSelect}
+                onDelete={props.onDelete}
+                onToast={props.onToast}
+              />
+            ))}
+          </div>
+        ),
+      )}
+    </>
   );
 }
 
@@ -317,11 +483,16 @@ function SessionRow(props: {
   active: boolean;
   onSelect: (path: string) => void;
   onDelete?: (path: string) => Promise<void> | void;
+  onToast?: (text: string) => void;
+  collapsed?: boolean;
+  indent?: boolean;
 }) {
-  const { session: s, active, onSelect, onDelete } = props;
+  const { session: s, active, onSelect, onDelete, collapsed, indent } = props;
   const [hovered, setHovered] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const locked = s.foreignLockPid != null;
+  const showText = !collapsed;
+  const dotColor = locked ? theme.amber : active ? theme.clay : theme.textSoft;
 
   return (
     <div
@@ -333,45 +504,53 @@ function SessionRow(props: {
       style={{
         display: "flex",
         alignItems: "center",
-        margin: "1px 4px",
-        borderRadius: 6,
+        margin: "1px 0",
+        borderRadius: 7,
         background: active ? theme.bgAlt2 : "transparent",
         position: "relative",
       }}
     >
       <button
         type="button"
-        title={`${s.sessionId} · ${s.sessionPath}`}
+        title={collapsed ? s.title : `${s.sessionId} · ${s.sessionPath}`}
+        aria-label={s.title}
         onClick={() => onSelect(s.sessionPath)}
         style={{
           flex: 1,
           minWidth: 0,
-          padding: "7px 10px",
-          borderRadius: 6,
-          border: "1px solid transparent",
+          padding: indent ? "6px 10px 6px 18px" : collapsed ? "7px 0" : "7px 10px",
+          borderRadius: 7,
+          border: "none",
           background: "transparent",
           color: active ? theme.text : theme.textDim,
           cursor: "pointer",
-          fontSize: 13,
+          fontSize: indent ? 12.5 : 13,
           fontFamily: "inherit",
           textAlign: "left",
-          lineHeight: 1.35,
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: 8,
         }}
       >
-        <span style={{ display: "inline-block", width: 6, marginRight: 8 }}>
-          {locked ? (
-            <span style={{ color: theme.amber }}>●</span>
-          ) : (
-            <span style={{ color: active ? theme.clay : theme.textSoft }}>●</span>
-          )}
-        </span>
-        {s.title}
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: dotColor,
+            flexShrink: 0,
+          }}
+        />
+        {showText && (
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</span>
+        )}
       </button>
 
-      {onDelete && (hovered || confirming) && !locked && (
+      {showText && onDelete && (hovered || confirming) && !locked && (
         <button
           type="button"
           aria-label={confirming ? `Confirm delete ${s.title}` : `Delete ${s.title}`}
@@ -384,10 +563,11 @@ function SessionRow(props: {
             }
             await onDelete(s.sessionPath);
             setConfirming(false);
+            props.onToast?.("Conversation deleted");
           }}
           style={{
             position: "absolute",
-            right: 6,
+            right: 5,
             top: "50%",
             transform: "translateY(-50%)",
             background: confirming ? theme.red : "transparent",
@@ -395,8 +575,8 @@ function SessionRow(props: {
             borderRadius: 5,
             color: confirming ? "#fff" : theme.textMute,
             cursor: "pointer",
-            padding: "3px 6px",
-            fontSize: 11,
+            padding: "3px 7px",
+            fontSize: 10.5,
             lineHeight: 1,
             display: "flex",
             alignItems: "center",

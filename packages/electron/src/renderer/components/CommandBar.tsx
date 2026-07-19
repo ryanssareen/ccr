@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Command } from "cmdk";
-import { KNOWN_MODELS } from "../known-models.js";
 import type { ListedSession } from "../ipc-client.js";
 import type { DesktopMode } from "../theme.js";
 import { theme } from "../theme.js";
 
-/** ⌘K / Ctrl K palette backed by cmdk fuzzy scoring — Unit 6. */
+/** ⌘K / Ctrl K palette backed by cmdk fuzzy scoring. Cream-themed to match
+ * the rest of CCR Desktop. */
 export interface CommandBarProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -21,6 +21,28 @@ export interface CommandBarProps {
   onSetModel: (m: string) => void;
   onSetMode: (m: DesktopMode) => void;
 }
+
+const groupHeading = (label: string) => (
+  <span
+    style={{
+      color: theme.textSoft,
+      fontSize: 10.5,
+      textTransform: "uppercase",
+      letterSpacing: "0.6px",
+    }}
+  >
+    {label}
+  </span>
+);
+
+const itemStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  fontSize: 13,
+  borderRadius: 7,
+  margin: "2px 4px",
+  cursor: "pointer",
+  color: theme.text,
+};
 
 export function CommandBar(props: CommandBarProps) {
   const inputRef = useRef<React.ElementRef<typeof Command.Input>>(null);
@@ -48,13 +70,13 @@ export function CommandBar(props: CommandBarProps) {
       style={{
         position: "fixed",
         inset: 0,
-        backdropFilter: "blur(10px)",
-        background: "rgba(8,10,14,.72)",
+        backdropFilter: "blur(2px)",
+        background: "rgba(20, 20, 19, 0.46)",
         zIndex: 100,
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        paddingTop: 80,
+        paddingTop: 90,
       }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onOpenChange(false);
@@ -68,103 +90,102 @@ export function CommandBar(props: CommandBarProps) {
           if (e.key === "Escape") props.onOpenChange(false);
         }}
         style={{
-          width: "min(540px,calc(100vw - 32px))",
-          borderRadius: 12,
-          border: `1px solid ${theme.border}`,
-          background: "#171a22",
+          width: "min(560px,calc(100vw - 32px))",
+          maxHeight: "70vh",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 13,
+          border: `1px solid ${theme.borderSoft}`,
+          background: theme.bgAlt,
           color: theme.text,
           overflow: "hidden",
-          boxShadow: "0 18px 50px rgba(0,0,0,.65)",
-          fontFamily: "'JetBrains Mono', monospace",
+          boxShadow: "0 24px 60px rgba(20, 20, 19, 0.22)",
+          fontFamily: "var(--font-sans)",
         }}
       >
         <Command.Input
           ref={inputRef}
           value={value}
           onValueChange={setValue}
-          placeholder="Type a command…"
+          placeholder="Type a command or search sessions…"
           style={{
             outline: "none",
-            padding: "12px 14px",
+            padding: "14px 16px",
             border: "none",
-            borderBottom: `1px solid ${theme.borderDim}`,
+            borderBottom: `1px solid ${theme.borderSoft}`,
             width: "100%",
-            background: "#171a22",
+            background: "transparent",
             color: theme.text,
+            fontSize: 14,
+            fontFamily: "var(--font-sans)",
           }}
           /* cmdk handles Enter natively (selects the active item). Don't
              swallow keydowns here. */
         />
-        <Command.List style={{ maxHeight: 320, overflow: "auto" }}>
-          <Command.Empty style={{ padding: "10px 12px", color: theme.textMute }}>(no matching commands)</Command.Empty>
+        <Command.List style={{ maxHeight: 360, overflow: "auto", padding: 6 }}>
+          <Command.Empty style={{ padding: "10px 12px", color: theme.textSoft, fontSize: 13 }}>
+            (no matching commands)
+          </Command.Empty>
 
-          <Command.Group
-            heading={<span style={{ color: theme.textMute, fontSize: 11 }}>Sessions · recent</span>}
-          >
+          <Command.Group heading={groupHeading("Sessions · recent")}>
             {recentSessions.map((s) => (
               <Command.Item
                 key={s.sessionPath}
-                value={`${s.sessionPath} session ${s.sessionId}`}
+                value={`${s.sessionPath} session ${s.sessionId} ${s.title}`}
                 onSelect={() => runAndClose(() => props.onSelectSessionPath(s.sessionPath))}
-                style={{
-                  padding: "7px 10px",
-                  fontSize: 12,
-                  borderRadius: 6,
-                  margin: "2px 4px",
-                  cursor: "pointer",
-                }}
+                style={itemStyle}
               >
-                {s.sessionId}
+                {s.title}
               </Command.Item>
             ))}
           </Command.Group>
 
-          <Command.Group heading={<span style={{ color: theme.textMute, fontSize: 11 }}>Models</span>}>
+          <Command.Group heading={groupHeading("Modes")}>
+            {props.modes.map((mode) => (
+              <Command.Item
+                key={mode}
+                value={`mode ${mode}`}
+                onSelect={() => runAndClose(() => props.onSetMode(mode))}
+                style={itemStyle}
+              >
+                mode — {mode}
+              </Command.Item>
+            ))}
+          </Command.Group>
+
+          <Command.Group heading={groupHeading("Models")}>
             {props.models.map((m) => (
               <Command.Item
                 key={m}
                 value={`switch model ${m}`}
                 onSelect={() => runAndClose(() => props.onSetModel(m))}
-                style={{ padding: "7px 10px", fontSize: 12, cursor: "pointer", margin: "2px 4px" }}
+                style={{ ...itemStyle, fontFamily: "var(--font-mono)", fontSize: 12 }}
               >
                 {m}
               </Command.Item>
             ))}
           </Command.Group>
 
-          <Command.Group heading={<span style={{ color: theme.textMute, fontSize: 11 }}>Modes</span>}>
-            {props.modes.map((mode) => (
-              <Command.Item
-                key={mode}
-                value={`mode ${mode}`}
-                onSelect={() => runAndClose(() => props.onSetMode(mode))}
-                style={{ padding: "7px 10px", fontSize: 12, cursor: "pointer", margin: "2px 4px" }}
-              >
-                mode {mode}
-              </Command.Item>
-            ))}
-          </Command.Group>
-
-          <Command.Group heading={<span style={{ color: theme.textMute, fontSize: 11 }}>Actions</span>}>
+          <Command.Group heading={groupHeading("Actions")}>
             {props.slashActions.map((a) => (
               <Command.Item
                 key={a.shortcut}
                 value={`slash ${a.label} ${a.shortcut}`}
                 onSelect={() => runAndClose(a.run)}
-                style={{ padding: "7px 10px", fontSize: 12, cursor: "pointer", margin: "2px 4px" }}
+                style={itemStyle}
               >
                 {a.shortcut}{" — "}{a.label}
               </Command.Item>
             ))}
           </Command.Group>
 
-          <Command.Group heading={<span style={{ color: theme.textMute, fontSize: 11 }}>New session</span>}>
+          <Command.Group heading={groupHeading("New session")}>
             {props.projectRoots.map((root) => (
               <Command.Item
                 key={root}
                 value={`new session in ${root}`}
                 onSelect={() => runAndClose(() => props.onNewSession(root))}
-                style={{ padding: "7px 10px", fontSize: 12, cursor: "pointer", margin: "2px 4px", whiteSpace: "pre-wrap" }}
+                style={{ ...itemStyle, whiteSpace: "pre-wrap" }}
               >
                 New session in {root}
               </Command.Item>
@@ -172,8 +193,15 @@ export function CommandBar(props: CommandBarProps) {
           </Command.Group>
         </Command.List>
 
-        <div style={{ padding: "6px 10px", borderTop: `1px solid ${theme.border}`, fontSize: 10, color: theme.textMute }}>
-          ⌘K / Ctrl+K toggle · ↑↓ navigate · Esc close · Enter execute
+        <div
+          style={{
+            padding: "8px 14px",
+            borderTop: `1px solid ${theme.borderSoft}`,
+            fontSize: 10.5,
+            color: theme.textMute,
+          }}
+        >
+          ⌘K toggle · ↑↓ navigate · Esc close · Enter execute
         </div>
       </Command>
     </div>

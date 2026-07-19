@@ -1,17 +1,20 @@
 import { useState } from "react";
-import type { CcrConfig } from "@ccr/core";
+import type { CcrConfig, QuotaState } from "@ccr/core";
 import { ccrIpcClient } from "../ipc-client.js";
 import { useSessionStore } from "../state/session-store.js";
+import { ProgressBar } from "./ui.js";
 
 interface SettingsModalProps {
   config: CcrConfig;
+  quota?: QuotaState | null;
   onClose: () => void;
   onSignOut: () => void;
+  onToast?: (text: string) => void;
 }
 
-/** Settings modal — nickname, custom instructions, toggles. Persists via
+/** Settings modal — nickname, custom instructions, usage, toggles. Persists via
  * the same `settings:save` IPC the model picker already uses. */
-export function SettingsModal({ config, onClose, onSignOut }: SettingsModalProps) {
+export function SettingsModal({ config, quota, onClose, onSignOut, onToast }: SettingsModalProps) {
   const [nickname, setNickname] = useState(config.nickname ?? "");
   const [customInstructions, setCustomInstructions] = useState(
     config.customInstructions ?? "",
@@ -34,8 +37,12 @@ export function SettingsModal({ config, onClose, onSignOut }: SettingsModalProps
     });
     await hydrate();
     setSaving(false);
+    onToast?.("Settings saved");
     onClose();
   }
+
+  const hasQuota = quota != null && quota.limit > 0;
+  const quotaPct = hasQuota ? (quota!.used / quota!.limit) * 100 : 0;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -64,6 +71,16 @@ export function SettingsModal({ config, onClose, onSignOut }: SettingsModalProps
             style={{ fontFamily: "var(--font-sans)", lineHeight: 1.5, resize: "vertical" }}
           />
         </div>
+
+        {hasQuota && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={fieldLabel}>Usage today</label>
+            <ProgressBar pct={quotaPct} />
+            <div style={{ color: "var(--text-soft)", fontSize: 11.5, marginTop: 5 }}>
+              {quota!.used} / {quota!.limit} requests today
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 14 }}>
           <Toggle

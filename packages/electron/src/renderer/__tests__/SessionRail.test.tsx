@@ -20,7 +20,7 @@ function mockSession(opts: Partial<ListedSession> & Pick<ListedSession, "session
 afterEach(() => cleanup());
 
 describe("SessionRail", () => {
-  it("groups two projects sorted by newest project activity", async () => {
+  it("shows the current project's sessions and folds other projects away", async () => {
     const now = Date.now();
     const indexed: ListedSession[] = [
       mockSession({
@@ -48,19 +48,27 @@ describe("SessionRail", () => {
       <SessionRail
         indexed={indexed}
         activeSessionPath={null}
-        defaultProjectRoot="/tmp/proj"
+        // The current project is the one new sessions default into; its
+        // sessions are shown expanded, everything else is tucked away.
+        defaultProjectRoot="/tmp/a"
         onSelect={(p) => onSelect(p)}
         onNewSession={vi.fn()}
       />,
     );
 
+    // Current-project session is visible and selectable.
     const btn = screen.getByText(/new-a/).closest("button");
     expect(btn).toBeTruthy();
     fireEvent.click(btn!);
     expect(onSelect).toHaveBeenCalledWith(expect.stringContaining("new-a.json"));
 
-    const headings = screen.getAllByText("Today");
-    expect(headings.length).toBeGreaterThan(0);
+    // Sessions are bucketed by date.
+    expect(screen.getAllByText("Today").length).toBeGreaterThan(0);
+
+    // The other project starts folded, then reveals its sessions on click.
+    expect(screen.queryByText(/b-only/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /other projects/i }));
+    expect(screen.getByText(/b-only/)).toBeTruthy();
   });
 
   it("empty state exposes new session CTA", () => {
@@ -68,6 +76,26 @@ describe("SessionRail", () => {
       <SessionRail indexed={[]} activeSessionPath={null} defaultProjectRoot="/x" onSelect={vi.fn()} onNewSession={vi.fn()} />,
     );
     expect(screen.getByRole("button", { name: /new session/i })).toBeTruthy();
+  });
+
+  it("search narrows the visible sessions", () => {
+    const indexed = [
+      mockSession({ sessionPath: "/s/a/one.json", sessionId: "one", projectRoot: "/tmp/a", title: "fix the flicker" }),
+      mockSession({ sessionPath: "/s/a/two.json", sessionId: "two", projectRoot: "/tmp/a", title: "write the docs" }),
+    ];
+    render(
+      <SessionRail
+        indexed={indexed}
+        activeSessionPath={null}
+        defaultProjectRoot="/tmp/a"
+        query="flick"
+        onQueryChange={vi.fn()}
+        onSelect={vi.fn()}
+        onNewSession={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/flicker/)).toBeTruthy();
+    expect(screen.queryByText(/docs/)).toBeNull();
   });
 
   it("placeholder session renders without exploding", () => {
@@ -85,8 +113,10 @@ describe("SessionRail", () => {
       }),
     ];
     render(
-      <SessionRail indexed={indexed} activeSessionPath={null} defaultProjectRoot="/fallback" onSelect={vi.fn()} onNewSession={vi.fn()} />,
+      <SessionRail indexed={indexed} activeSessionPath={null} defaultProjectRoot="/tmp/a" onSelect={vi.fn()} onNewSession={vi.fn()} />,
     );
+    // The null-root (locked) session lives under "Other projects".
+    fireEvent.click(screen.getByRole("button", { name: /other projects/i }));
     const lockBtn = screen.getByRole("button", { name: /no-msgs/ });
     fireEvent.click(lockBtn);
   });

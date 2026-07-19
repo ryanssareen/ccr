@@ -21,11 +21,13 @@ export function QuestionModal(props: {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,.55)",
+        background: "rgba(20,20,19,.42)",
+        backdropFilter: "blur(2px)",
         zIndex: 45,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 24,
       }}
       onMouseDown={(e) => {
         /* prevent click-through behind */
@@ -36,13 +38,15 @@ export function QuestionModal(props: {
         style={{
           minWidth: 320,
           maxWidth: 520,
-          padding: "16px 18px",
-          borderRadius: 10,
-          border: `1px solid ${theme.purple}`,
-          background: "#181b22",
+          width: "100%",
+          padding: "20px 22px",
+          borderRadius: 14,
+          border: `1px solid ${theme.borderSoft}`,
+          background: theme.bgAlt,
+          boxShadow: "0 24px 60px rgba(20, 20, 19, 0.18)",
         }}
       >
-        <div style={{ color: theme.purple, fontWeight: 700, marginBottom: 8 }}>
+        <div style={{ color: theme.clay, fontWeight: 700, marginBottom: 8 }}>
           ? ccr asks ({props.step + 1}/{props.total})
         </div>
         <div style={{ color: theme.text, fontSize: 14, whiteSpace: "pre-wrap", marginBottom: 10 }}>
@@ -59,13 +63,14 @@ export function QuestionModal(props: {
                     display: "block",
                     width: "100%",
                     textAlign: "left",
-                    marginTop: 4,
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    border: `1px solid ${theme.borderDim}`,
-                    background: "#20242d",
+                    marginTop: 6,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: `1px solid ${theme.borderSoft}`,
+                    background: theme.white,
                     color: theme.text,
                     cursor: "pointer",
+                    fontSize: 13.5,
                   }}
                   onClick={() => {
                     if (item.value === "__other__") setMode("freetext");
@@ -81,29 +86,26 @@ export function QuestionModal(props: {
           <div style={{ marginTop: 10 }}>
             <label style={{ color: theme.textDim, fontSize: 13 }}>Your answer</label>
             <textarea
+              className="textarea"
               value={freeText}
               onChange={(e) => setFreeText(e.target.value)}
               style={{
                 width: "100%",
                 minHeight: 72,
                 marginTop: 6,
-                background: "#1a1d24",
-                color: theme.text,
-                borderRadius: 6,
-                border: `1px solid ${theme.border}`,
-                padding: 8,
                 resize: "vertical",
+                fontFamily: "var(--font-sans)",
               }}
             />
-            <div style={{ marginTop: 10, fontSize: 12, color: theme.textMute }}>
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
               <button
                 type="button"
-                style={{ marginRight: 8 }}
+                className="btn btn-primary"
                 onClick={() => props.onSubmitFreeText(freeText.trim() || "(no answer)")}
               >
                 Submit
               </button>
-              <button type="button" onClick={() => setMode("select")}>
+              <button type="button" className="btn btn-ghost" onClick={() => setMode("select")}>
                 Back
               </button>
             </div>

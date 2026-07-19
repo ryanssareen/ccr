@@ -23,6 +23,11 @@ export const theme = {
   red: "#b42c2c",
   green: "#788c5d",
 
+  // Soft tints for status pills / badges (cream-friendly, low-alpha).
+  sageSoft: "rgba(120, 140, 93, 0.14)",
+  amberSoft: "rgba(201, 142, 58, 0.14)",
+  redSoft: "rgba(180, 44, 44, 0.10)",
+
   // Borders
   border: "#141413",
   borderSoft: "#d8d4c8",

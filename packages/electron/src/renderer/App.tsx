@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionStore } from "./state/session-store.js";
 import { ccrIpcClient } from "./ipc-client.js";
 import { theme, type DesktopMode } from "./theme.js";
 import { SessionRail } from "./components/SessionRail.js";
 import { ChatStage } from "./components/ChatStage.js";
-import { ProfileFooter } from "./components/ProfileFooter.js";
 import { SettingsModal } from "./components/SettingsModal.js";
 import { LoginScreen } from "./components/LoginScreen.js";
 import { CommandBar } from "./components/CommandBar.js";
+import { Toast } from "./components/ui.js";
+import { KNOWN_MODELS } from "./known-models.js";
 import { signOutFirebase } from "./firebase-client.js";
 
 const SLASH_COMMANDS = [
@@ -20,6 +21,7 @@ const SLASH_COMMANDS = [
 export function App() {
   const auth = useSessionStore((s) => s.auth);
   const config = useSessionStore((s) => s.config);
+  const quota = useSessionStore((s) => s.quota);
   const indexed = useSessionStore((s) => s.indexed);
   const activeSessionPath = useSessionStore((s) => s.activeSessionPath);
   const defaultProjectRoot = useSessionStore((s) => s.bootstrapDefaultProjectRoot);
@@ -39,6 +41,20 @@ export function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [query, setQuery] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((text: string) => {
+    setToast(text);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
 
   useEffect(() => {
     void hydrateBootstrap().finally(() => setBootstrapped(true));
@@ -133,6 +149,7 @@ export function App() {
       window.alert(`Sign out failed: ${err instanceof Error ? err.message : String(err)}`);
       return;
     }
+    showToast("Signed out");
     await hydrateBootstrap();
   };
 
@@ -218,14 +235,11 @@ export function App() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "260px 1fr",
-        gridTemplateRows: "1fr auto",
-        gridTemplateAreas: `
-          "sessions chat"
-          "settings chat"
-        `,
+        gridTemplateColumns: `${sidebarCollapsed ? 72 : 272}px 1fr`,
+        gridTemplateRows: "1fr",
         height: "100vh",
         width: "100vw",
+        overflow: "hidden",
         background: theme.bg,
         color: theme.text,
         fontFamily: "var(--font-sans)",
@@ -242,6 +256,15 @@ export function App() {
         }}
         defaultProjectRoot={defaultProjectRoot}
         onPickProjectRoot={handlePickProjectRoot}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        query={query}
+        onQueryChange={setQuery}
+        auth={auth}
+        config={config}
+        quota={quota}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onToast={showToast}
       />
 
       {needsProjectRootChoice && (
@@ -256,30 +279,31 @@ export function App() {
         mode={mode}
         model={model}
         onPickModel={handlePickModel}
+        onSetMode={setMode}
+        onOpenCommandBar={() => setCmdOpen(true)}
+        onToast={showToast}
         onQuotaPush={() => {
           // ChatStage forwards proxy-side quota pushes; we subscribe globally.
         }}
       />
 
-      <ProfileFooter
-        auth={auth}
-        config={config}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
-
       {settingsOpen && (
         <SettingsModal
           config={config ?? {}}
+          quota={quota}
           onClose={() => setSettingsOpen(false)}
           onSignOut={() => void handleSignOut()}
+          onToast={showToast}
         />
       )}
+
+      {toast && <Toast text={toast} />}
 
       <CommandBar
         open={cmdOpen}
         onOpenChange={setCmdOpen}
         indexed={indexed}
-        models={[]}
+        models={KNOWN_MODELS}
         modes={["ask", "accept-edits", "bypass"]}
         slashActions={slashActions}
         projectRoots={projectRoots}
@@ -290,6 +314,7 @@ export function App() {
         onNewSession={async (root) => {
           setCmdOpen(false);
           await handleNewSession(root);
+          showToast("New session started");
         }}
         onSetModel={(m) => {
           setCmdOpen(false);

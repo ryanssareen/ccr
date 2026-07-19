@@ -68,22 +68,26 @@ export function ApprovalModal(props: {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,.55)",
+        background: "rgba(20,20,19,.42)",
+        backdropFilter: "blur(2px)",
         zIndex: 40,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 24,
       }}
     >
       <div
         style={{
           maxWidth: 720,
+          width: "100%",
           maxHeight: "80vh",
           overflow: "auto",
-          padding: "16px 20px",
-          borderRadius: 10,
-          border: `1px solid ${theme.border}`,
-          background: "#181b22",
+          padding: "18px 22px",
+          borderRadius: 14,
+          border: `1px solid ${theme.borderSoft}`,
+          background: theme.bgAlt,
+          boxShadow: "0 24px 60px rgba(20, 20, 19, 0.18)",
         }}
       >
         <div style={{ color: theme.amber, fontWeight: 700, marginBottom: 8 }}>
@@ -93,9 +97,13 @@ export function ApprovalModal(props: {
         <pre
           style={{
             whiteSpace: "pre-wrap",
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: 12,
             margin: "8px 0 0",
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: theme.white,
+            border: `1px solid ${theme.borderSoft2}`,
             color: theme.text,
           }}
         >
